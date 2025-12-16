@@ -104,8 +104,8 @@ $res1111="✅";
 "reply_to_message_id"=>$mid,
 "reply_markup"=>json_encode([
 "inline_keyboard"=>[
-[["text"=>"$res1 Yangiliklar🔊","url"=>"https://t.me/MyMaxUz"],],
-[["text"=>"$res11 Homiy","url"=>"https://t.me/iUzbekDev"],],
+[["text"=>"$res1 Yangiliklar🔊","url"=>"https://t.me/seal_seen"],],
+[["text"=>"$res11 Homiy","url"=>"https://t.me/SULTANOVCHANNEL"],],
 [['text'=>"🔄 Tekshirish",'callback_data'=>"tekshir"]],
 ]
 ]),
