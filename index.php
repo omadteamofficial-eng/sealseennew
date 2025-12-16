@@ -1,2168 +1,3062 @@
 <?php
 ob_start();
+date_default_timezone_set('Asia/Tashkent'); 
+define('API_KEY',"8398800703:AAHhCmdBlLdHvop4KvlehTbmbQLlzmC4jZk");
+$soat = date('H:i');
+$sana = date("d.m.Y");
 
+/*manba: @education_coders*/
+$EmeraldDev = "5753940532";
+$oplatazz = "TezNakrutkachiNews"; //tolovlar kanal
+$oplatachats = "TezNakrutkachiNews";//muhokama guruh
+$sanaqachon = "202029";//bot ishga tushgan sana
 
-
-define('API_KEY','8398800703:AAHhCmdBlLdHvop4KvlehTbmbQLlzmC4jZk');
+$admins=file_get_contents("stat/admins.txt");
+$admin = explode("\n", $admins);
+array_push($admin,$EmeraldDev);
 
 function bot($method,$datas=[]){
-    $url = "https://api.telegram.org/bot".API_KEY."/".$method;
-    $ch = curl_init();
-    curl_setopt($ch,CURLOPT_URL,$url);
-    curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
-    curl_setopt($ch,CURLOPT_POSTFIELDS,$datas);
-    $res = curl_exec($ch);
-    if(curl_error($ch)){
-        var_dump(curl_error($ch));
-    }else{
-        return json_decode($res);
-    }
+$url = "https://api.telegram.org/bot".API_KEY."/".$method;
+$ch = curl_init();
+curl_setopt($ch,CURLOPT_URL,$url);
+curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+curl_setopt($ch,CURLOPT_POSTFIELDS,$datas);
+$res = curl_exec($ch);
+if(curl_error($ch)){
+var_dump(curl_error($ch));
+}else{
+return json_decode($res);
+}}
+
+///Avto Webhook!
+$a=file_get_contents("https://api.telegram.org/bot".API_KEY."/setwebhook?url=".$_SERVER['SERVER_NAME']."".$_SERVER['SCRIPT_NAME']);
+echo $a;
+//
+
+function getAdmin($chat){
+$url = "https://api.telegram.org/bot".API_KEY."/getChatAdministrators?chat_id=@".$chat;
+$result = file_get_contents($url);
+$result = json_decode ($result);
+return $result->ok;
 }
 
+function deleteFolder($path){
+if(is_dir($path) === true){
+$files = array_diff(scandir($path), array('.', '..'));
+foreach ($files as $file)
+deleteFolder(realpath($path) . '/' . $file);
+return rmdir($path);
+}else if (is_file($path) === true)
+return unlink($path);
+return false;
+}
 
-
-//code by @ahzee
-
+function joinchat($id){
+global $mid;
+$array = array("inline_keyboard");
+$kanallar=file_get_contents("stat/kanal.txt");
+if($kanallar == null){
+return true;
+}else{
+$ex = explode("\n",$kanallar);
+for($i=0;$i<=count($ex) -1;$i++){
+$first_line = $ex[$i];
+$first_ex = explode("@",$first_line);
+$url = $first_ex[1];
+$ism=bot('getChat',['chat_id'=>"@".$url,])->result->title;
+$ret = bot("getChatMember",[
+"chat_id"=>"@$url",
+"user_id"=>$id,
+]);
+$stat = $ret->result->status;
+if((($stat=="creator" or $stat=="administrator" or $stat=="member"))){
+$array['inline_keyboard']["$i"][0]['text'] = "✅ ". $ism;
+$array['inline_keyboard']["$i"][0]['url'] = "https://t.me/$url";
+}else{
+$array['inline_keyboard']["$i"][0]['text'] = "❌ ". $ism;
+$array['inline_keyboard']["$i"][0]['url'] = "https://t.me/$url";
+$uns = true;
+}
+}
+$array['inline_keyboard']["$i"][0]['text'] = "🔄 Tekshirish";
+$array['inline_keyboard']["$i"][0]['callback_data'] = "check";
+if($uns == true){
+bot('sendMessage',[
+'chat_id'=>$id,
+'text'=>"<b>⚠️ Botdan to'liq foydalanish uchun quyidagi kanallarimizga obuna bo'ling!</b>",
+'parse_mode'=>'html',
+'disable_web_page_preview'=>true,
+'reply_markup'=>json_encode($array),
+]);
+exit();
+return false;
+}else{
+return true;
+}}}
 
 $update = json_decode(file_get_contents('php://input'));
 $message = $update->message;
-$from_id = $message->from->id;
-$chat_id = $message->chat->id;
-$message_id = $message->message_id;
-$first_name = $message->from->first_name;
-$last_name = $message->from->last_name;
-$username = $message->from->username;
+$cid = $message->chat->id;
+$tx = $message->text;
+$mid = $message->message_id;
+$name1 = $message->from->first_name;
+$fid = $message->from->id;
+$name = $message->from->first_name;
+$callback = $update->callback_query;
+$data = $callback->data;
+$callid = $callback->id;
+$ccid = $callback->message->chat->id;
+$cmid = $callback->message->message_id;
+$from_id = $update->message->from->id;
+$token = $message->text;
 $text = $message->text;
-
-//Callback_data
+$message_id = $callback->message->message_id;
 $data = $update->callback_query->data;
-$mid = $update->callback_query->message->message_id;
-$cid = $update->callback_query->message->chat->id;
-$uid = $update->callback_query->message->from->id;
-$qid = $update->callback_query->id; 
-$tx = $update->callback_query->message->text; 
-$frid = $update->callback_query->from->id; 
-$cfname = $update->callback_query->from->first_name;  
-$ctitle = $update->callback_query->message->chat->title; 
-$cuser = $update->callback_query->message->chat->username; 
+$callcid=$update->callback_query->message->chat->id;
+$botdel = $update->my_chat_member->new_chat_member; 
+$botdelid = $update->my_chat_member->from->id;
+$status= $botdel->status;
+$doc = $update->message->document;
+$doc_id = $doc->file_id;
+$cqid = $update->callback_query->id;
+$callfrid = $update->callback_query->from->id;
+$botname = bot('getme',['bot'])->result->username;
+$callname = $update->callback_query->from->first_name;
+$frid= $update->callback_query->from->id;
+#-----------------------------
+if(!file_exists("kabinet/$fid.som")){
+file_put_contents("kabinet/$fid.som","0");
+}
+$som = file_get_contents("kabinet/$fid.som");
+if(!file_exists("kabinet/$fid.dpz")){
+file_put_contents("kabinet/$fid.dpz","0");
+}
+$dpz = file_get_contents("kabinet/$fid.dpz");
+if(file_get_contents("azo.dat")){
+}else{
+file_put_contents("azo.dat","");
+}
+if(file_get_contents("stat/kirit.txt")){
+}else{
+file_put_contents("stat/kirit.txt","0");
+}
+if(file_get_contents("stat/kanal.txt")){
+}else{
+file_put_contents("stat/kanal.txt","");
+}
+if(file_get_contents("stat/tolov.txt")){
+}else{
+file_put_contents("stat/tolov.txt","");
+}
+$krt = file_get_contents("stat/kirit.txt");
+if(file_get_contents("stat/yech.txt")){
+}else{
+file_put_contents("stat/yech.txt","0");
+}
+$ych = file_get_contents("stat/yech.txt");
+if(file_get_contents("stat/payments.txt")){
+}else{
+file_put_contents("stat/payments.txt","");
+}
+if(!file_exists("stat/date.txt")){  
+file_put_contents("stat/date.txt","1");
+}
 
+if(!file_exists("sozlama/asosiy/adminuser.txt")){  
+file_put_contents("sozlama/asosiy/adminuser.txt","shakh_akn");
+}
+if(!file_exists("sozlama/asosiy/cashback.txt")){  
+file_put_contents("sozlama/asosiy/cashback.txt","2");
+}
+if(!file_exists("sozlama/asosiy/minimum.txt")){  
+file_put_contents("sozlama/asosiy/minimum.txt","60000");
+}
+if(!file_exists("sozlama/asosiy/usluga.txt")){  
+file_put_contents("sozlama/asosiy/usluga.txt","3");
+}
 
+$adminuser = file_get_contents("sozlama/asosiy/adminuser.txt");
+$incashback = file_get_contents("sozlama/asosiy/cashback.txt");
+$inminimum = file_get_contents("sozlama/asosiy/minimum.txt");
+$inusluga = file_get_contents("sozlama/asosiy/usluga.txt");
+$saved = file_get_contents("step/shoxrux.txt");
+$pay = file_get_contents("stat/payments.txt");
+#-----------------------------
+mkdir("kabinet");
+mkdir("sozlama");
+mkdir("sozlama/asosiy");
+mkdir("step");
+mkdir("stat");
+mkdir("ban");
+mkdir("vip");
+mkdir("tarif");
+mkdir("tarif/$cid");
+#-----------------------------
+$shoxrux = file_get_contents("step/test.txt");
+$test1 = file_get_contents("step/test1.txt");
+$test2 = file_get_contents("step/test2.txt");
 
-$hyper_link="[$first_name](tg://user?id=$chat_id)";
-//foydalanuvchi chati giper linki
+$turi = file_get_contents("vip/turi.txt");
+$narxivip = file_get_contents("vip/$shoxrux/narxi.txt");
+$kunlikvip = file_get_contents("vip/$shoxrux/kunlik.txt");
+$vipinfo= file_get_contents("vip/$shoxrux/info.txt");
+#----------+----------
 
-$host="xvil.cf/Life";
-//index.php manzili
+$ban = file_get_contents("ban/$fid.txt");
+$chans=file_get_contents("stat/kanal.txt");
+$tkanal=file_get_contents("stat/tolov.txt");
+$stat=file_get_contents("azo.dat");
+$userstep=file_get_contents("step/$fid.txt");
+$soat=date("H:i",strtotime("2 hour"));
 
-$privacy="t.me/LifegramBot?start=privacy";
-//shartnoma va qonun qoidalar linki
+if($tx){
+if($ban == "ban"){
+exit();
+}else{
+}}
 
-$examples="@ExampleLifegramBot";
-//namuna uchun bot
-
-$reply_info="https://telegram.org/tour/groups#replies";
-//rasmiy Telegramni javob qaytarish haqidagi ma'lumoti
-
-@mkdir("file");
-//foydalanuvchilar sozlamalari
-
-$lfsupport="@LifegramSupportBot";
-//qo'llab quvvatlash markazi 
-
+if($data){
+$ban = file_get_contents("ban/$ccid.txt");
+if($ban == "ban"){
+exit();
+}else{
+}}
 
 if(isset($message)){
-bot('SendChatAction',[
-'chat_id'=>$chat_id,
-'action'=>"typing"]);
+$get = file_get_contents("azo.dat");
+if(mb_stripos($get,$fid)==false){
+file_put_contents("azo.dat",  "$get\n$fid");
+}}
+
+$statistika = file_get_contents("azo.dat");
+$soat=date("H:i",strtotime("2 hour"));
+
+$main_menu = json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"💎 VIP Market"]],
+[['text'=>"💰 Hisobim"],['text'=>"💸 Pul ishlash"]],
+[['text'=>"📚 Ma'lumot"],['text'=>"📝 Murojaat"]],
+]]);
+
+$main_menuad = json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"💎 VIP Market"]],
+[['text'=>"💰 Hisobim"],['text'=>"💸 Pul ishlash"]],
+[['text'=>"📚 Ma'lumot"],['text'=>"📝 Murojaat"]],
+[['text'=>"🗄 Boshqarish"]],
+]]);
+
+$panel = json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"⚙️ Asosiy sozlamalar"]],
+[['text'=>"📢 Kanallar"],['text'=>"📊 Statistika"]],
+[['text'=>"📩 Xabarnoma"],['text'=>"💎 VIP Sozlamalar"]],
+[['text'=>"🔎 Foydalanuvchini boshqarish"]],
+[['text'=>"👥 Adminlar"],['text'=>"◀️ Orqaga"]],
+]]);
+
+if(in_array($cid,$admin)){
+$menyu = $main_menuad;
 }
-if(isset($data)){
-bot('SendChatAction',[
-'chat_id'=>$cid,
-'action'=>"typing"]);
-}
-
-
-
-
-@mkdir("language");
-$setnext=file_get_contents("file/".$chat_id."settings.next");
-$sudo="1317186088";
-$language=file_get_contents("language/$chat_id.language");
-$dlanguage=file_get_contents("language/$cid.language");
-$members=file_get_contents("file/stats.ic");
-$tokens=file_get_contents("file/token.ic");
-/*$mas=file_get_contents("file/us.me");
-
-if($text=="true" && $chat_id==$sudo){
-	file_put_contents("file/us.me","i");
-	}
-	if($text=="false" && $chat_id==$sudo){
-		file_put_contents("file/us.me","ok");
-		}*/
-		
-$explode=explode("\n",$members);
-$count=count($explode);
-$botstatic=file_get_contents("file/you.are");
-
-if(strpos($text,"/start")!==false){
-if(strpos($members,"$chat_id")!==false){
+if(in_array($cid,$admin)){
 }else{
-file_put_contents("file/stats.ic","$members\n$chat_id");
-
-$ulast="Киритилмаган!";
-if(isset($last_name)){
-$ulast=$last_name;
-}
-$usen=$ulast;
-if(isset($username)){
-$usen=$username;
-}
-bot('SendMessage',[
-	'chat_id'=>"-1001377187472",
-	'text'=>"
-Янги аъзо:
-
-Ник: [$first_name]
-ИД: [$chat_id]
-Фамилия: [$ulast]
-Юзер: [$usen]
-Хабар ИД: $message_id
-[Чат Чат Чат Чат Чат Чат](tg://user?id=$chat_id) ","parse_mode"=>markdown,
-"reply_markup"=>json_encode(["inline_keyboard"=>[
-[['text'=>"🌝Ban $first_name","callback_data"=>"Banan|$chat_id"],['text'=>"🌝Unban $first_name","callback_data"=>"Yemasakan|$chat_id"]]
-]])
-]);
-}
-}
-/*if($message && $mas=="ok" && $language=="uz"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Bot hozirda ish faliyatida emas noqulayliklar uchun uzir so'raymiz bot tez orada ishga tushadi.",
-	]);
-	return false;
-}
-if($message && $mas=="ok" && $language=="fa"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"ما از مشکل پیش آمده عذرخواهی می کنیم زیرا ربات در حال حاضر کار نمی کند. ربات به زودی فعال و راه اندازی می شود.",
-	]);
-	return false;
-}
-if($message && $mas=="ok" && $language=="de"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Wir entschuldigen uns für die Unannehmlichkeiten, da der Bot derzeit nicht in Betrieb ist. Der Bot wird bald betriebsbereit sein.",
-	]);
-	return false;
-}
-if($message && $mas=="ok" && $language=="ru"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Приносим извинения за неудобства, так как бот в настоящее время не работает. Бот скоро будет запущен..",
-	]);
-	return false;
-}
-if($message && $mas=="ok" && $language=="en" or $language==null){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"We apologize for the inconvenience as the bot is not currently in operation. The bot will be up and running soon.",
-	]);
-	return false;
-}
-if($message && $mas=="ok" && $language=="es"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Nous vous prions de nous excuser pour la gêne occasionnée car le bot n'est pas actuellement en service. Le bot sera bientôt opérationnel.",
-	]);
-	return false;
-}
-if($message && $mas=="ok" && $language=="ch"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"很抱歉給您帶來不便，因為該漫遊器目前尚未運行，它將很快啟動並運行.",
-	]);
-	return false;
-}*/
-//508
-$banan=file_get_contents("ban.id");
-
-
-if(strpos($data,"Banan")!==false){
-  $ex=explode("|",$data);
-  $ex=$ex[1];
-  file_put_contents("ban.id","$banan|$ex");
-  bot('answercallbackquery',[
-        'callback_query_id'=>$update->callback_query->id,
-        'text'=>"$ex successfully banned!👌",
-                'show_alert'=>false
-        ]);
-        bot("sendMessage",[
-   "chat_id"=>$ex,"text"=>"You banned 🚫"]);
-        }
-        
-        if(strpos($data,"delhook")!==false){
-  $ex=explode("|",$data);
-  $ex=$ex[1];
-  bot('answercallbackquery',[
-        'callback_query_id'=>$update->callback_query->id,
-        'text'=>"$ex successfully banned!👌",
-                'show_alert'=>false
-        ]);
-        file_get_contents("https://api.telegram.org/bot".$ex."/deletewebhook");
-        }
-        
-        if(strpos($data,"Yemasakan")!==false){
-  $ex=explode("|",$data);
-  $ex=$ex[1];
-$banan=str_replace($ex,$banan,"🌝");
-  file_put_contents("ban.id","$banan");
-  bot('answercallbackquery',[
-        'callback_query_id'=>$update->callback_query->id,
-        'text'=>"$ex successfully banned!👌",
-                'show_alert'=>false
-        ]);
-                bot("sendMessage",[
-   "chat_id"=>$ex,"text"=>"You unbanned😉"]);
-        }
-                if(strpos($text,"unban")!==false && $chat_id==$sudo){
-  $ex=explode(" ",$data);
-  $ex=$ex[1];
-$banan=str_replace($ex,$banan,"🌝");
-  file_put_contents("ban.id","$banan");
-  bot('sendMessage',[
-        'chat_id'=>$chat_id,
-        'text'=>"$ex bandan chiqazildi!👌",        
-        ]);
-                bot("sendMessage",[
-   "chat_id"=>$ex,"text"=>"You unbanned😉"]);
-        }
-
-        
-
-if(strpos($text,"/static")!==false && $from_id==$sudo){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Аъзолар: $count\nЖаъми ботлар: $botstatic"]);
-	}
-	
-	
-if(strpos($text,"/cancel")!==false && $setnext=="ok"){
-file_put_contents("file/".$chat_id."settings.next","unlink");
-bot('SendMessage',[
-	'chat_id'=>$chat_id,"parse_mode"=>markdown,
-	'text'=>"Cancelled: *Create Bot*"]);
-	}
-	
-
-$langkey=json_encode([
-'inline_keyboard'=>[
-[['text'=>'🇳🇿English','callback_data'=>'en'],['text'=>'🇺🇿Ӯзбекча','callback_data'=>'uz']],
-[['text'=>'🇷🇺Русский','callback_data'=>'ru']],
-[['text'=>'🇮🇷فارسی','callback_data'=>'fa'],['text'=>'🇨🇳中國','callback_data'=>'ch']],
-/*[['text'=>'🇩🇪Deutsch','callback_data'=>'de'],['text'=>'🇪🇦Español','callback_data'=>'es']],*/
-]]);
-
-
-if($text=="/feed" && $language=="uz"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"LifegramBot хақида таклиф, шикоят, камчиликлар учун @LifegramSupportBot га ёзинг.",
-	]);
-}
-if($text=="/feed" && $language=="ru"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Напишите нам на $lfsupport, если у вас возникнут проблемы или вопросы о Lifegram Bot..",
-	]);
-}
-if($text=="/feed" && $language=="en"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Message us at $lfsupport if you have any issues or questions about Lifegram Bot.",
-	]);
-}
-if($text=="/feed" && $language=="es"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Envíenos un mensaje a $lfsupport si tiene algún problema o pregunta sobre Lifegram Bot.",
-	]);
-}
-if($text=="/feed" && $language=="ch"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"如果您對Lifegram Bot有任何問題或疑問，請通過 $lfsupport 向我們發送消息",
-	]);
-}
-if($text=="/feed" && $language=="fa"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"اگر در مورد LifegramBot سالی دارید به ما درLifegramSupportBot پیام دهید",
-	]);
-}
-if($text=="/feed" && $language=="de"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Schreiben Sie uns unter @LifegramSupportBot, wenn Sie Probleme oder Fragen zu Lifegram Bot haben.",
-	]);
-}
-if($message){
-if(strpos($banan,"$chat_id")!==false){
-bot("deletemessage",['chat_id'=>$chat_id,"message_id"=>$message_id]);
-bot("sendMessage",['chat_id'=>$chat_id,"text"=>"You banned by the bot administrators! use /feed for help"]);
-return false;
-}
-}
-if($data){
-if(strpos($banan,"$cid")!==false){
-bot("deletemessage",['chat_id'=>$cid,"message_id"=>$mid]);
-bot("sendMessage",['chat_id'=>$cid,"text"=>"You banned by the bot administrators! use /feed for help"]);
-return false;
-}
-}
-//code by @ahzee
-if($text=="/ex" && $language=="uz"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Ушбу бот орқали яратилган намуна бот: @ExampleLifegramBot",
-	]);
-}
-if($text=="/ex" && $language=="ru"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Вот примеры ботов, которые были созданы с помощью Lifegram Bot:
-
-$examples - пример бота, созданного с помощью Lifegram Bot.",
-	]);
-}
-if($text=="/ex" && $language=="en"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Here is examples of bots that were made using Lifegram Bot:
-
-$examples — example of a bot made using Lifegram Bot.
-",
-	]);
-}
-if($text=="/ex" && $language=="es"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Aquí hay ejemplos de bots que se crearon con Lifegram Bot:
-
-$examples: ejemplo de un bot creado con Lifegram Bot.",
-	]);
-}
-if($text=="/ex" && $language=="ch"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"以下是使用Lifegram Bot製作的機器人示例：
-
-$examples —使用Lifegram Bot製造的機器人的示例。",
-	]);
-}
-if($text=="/ex" && $language=="fa"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"در اینجا نمونه هایی از ربات هایی که با استفاده از Lifegram Bot ساخته شده اند آورده شده است:
-
-$examples - نمونه ربات ساخته شده با استفاده از Lifegram Bot.",
-	]);
-}
-if($text=="/ex" && $language=="de"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"Hier sind Beispiele für Bots, die mit Lifegram Bot erstellt wurden:
-
-$examples - Beispiel eines mit Lifegram Bot erstellten Bots.",
-	]);
+$menyu = $main_menu;
 }
 
-if($text=="/start" && $language=="uz"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-
-
-*Салом* $hyper_link
-
-*LifegramBot* - Бу *Телеграм*-да фойдаланувчилар билан осон мулоқот қилишингиз мақсадида яратилган!
-
-Ушбу *бот*ни бошқариш учун *буйруқ*лардан фойдаланинг
-    
-*Буйруқлар*
-/newbot - Янги бот яратиш
-/language - Тилни танлаш
-
-
-
-","parse_mode"=>markdown]);
-return false;
+if($soat == "00:00"){
+$ikunm=file_get_contents("stat/date.txt");
+$day = $ikunm + 1;
+file_put_contents("stat/date.txt","$day");
 }
 
+$ikunmm=file_get_contents("stat/date.txt");
 
 
-
-
-if($text=="/start" && $language=="ru"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-
-
-
-*Здравствуйте* $hyper_link
-
-*Lifegram Bot* - Создан для удобного общения с пользователями в * Telegram *!
-
-Используйте эти *команды* для управления этим *ботом*:
-  
-*Команды*
-use /language to choose language
-/newbot - добавить *бот*
-
-
-
-","parse_mode"=>markdown]);
-return false;
+if(in_array($ccid,$admin)){
+$menyus = $main_menuad;
 }
-
-
-
-if($text=="/start" && $language=="en"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-
-*Hello* $hyper_link
-
-*LifegramBot* - this is designed for easy communication with users in *Telegram*!
-
-Use these *commands* to manage this *bot*:
-    
-*Commands*
-use /language to choose language
-use /newbot - to add new *bot*
-
-
-
-","parse_mode"=>markdown]);
-return false;
+if(in_array($ccid,$admin)){
+}else{
+$menyus = $main_menu;
 }
+//start
 
-
-if($text=="/start" && $language=="fa"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-
-$hyper_link *سلام*
-
-*LifegramBot* - سلام * تلگرام * برای ارتباط آسان با کاربران ایجاد شد!
-
-*برای مدیریت این * ربات * از این دستورات * استفاده کنید:
-    
-*دستورات*
-use /language to choose language
-/newbot - * ربات * اضافه کنید
-	
-	
-
-
-","parse_mode"=>markdown]);
-return false;
-}
-
-
-if($text=="/start" && $language=="de"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-
-*Hallo* $hyper_link
-
-*LifegramBot* - Dies ist für die einfache Kommunikation mit Benutzern in *Telegram* konzipiert!
-
-Verwenden Sie diese *Befehle*, um diesen *Bot* zu verwalten:
-    
-*Befehle*
-use /language to choose language
-/newbot - *bot* hinzufügen
-
-
-
-","parse_mode"=>markdown]);
-return false;
-}
-
-
-if($text=="/start" && $language=="ch"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-
-
-
-*您好* $hyper_link
-
-* LifegramBot *-旨在通過*電報*與用戶輕鬆通信！
-
-使用以下*命令*管理此*機器人*：
-    
-*命令*
-use /language to choose language
-/newbot-* bot *添加
-
-
-
-","parse_mode"=>markdown]);
-return false;
-}
-
-
-if($text=="/start" && $language=="es"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-
-
-* Hola * $hyper_link
-
-*LifegramBot *: ¡está diseñado para facilitar la comunicación con los usuarios en * Telegram *!
-
-Utilice estos * comandos * para administrar este * bot *:
-    
-* Comandos *
-use /language to choose language
-/newbot - * bot * agregar
-
-
-","parse_mode"=>markdown]);
-return false;
-}
-
-
-
-
-
-
-if($text=="/start" or $text=="/language"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-*Please Choose your language / Пожалуйста выберите язык
-Илтимос тилни танланг / Илтимос забонро интихоб кунед*
-","parse_mode"=>markdown,"reply_to_message_id"=>$message_id,"reply_markup"=>$langkey]);
-}
-
-
-
-
-//Language Uzbek
-
-if($data=="uz"){
-file_put_contents("language/$cid.language","uz");
-bot('answercallbackquery',[
-        'callback_query_id'=>$update->callback_query->id,
-        'text'=>"Ӯзбек тили сақланди👌",
-                'show_alert'=>false
-        ]);
-bot('EditMessageText',[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
-
-
-
-*Салом* [$cfname](tg://user?id=$cid)
-
-*LifegramBot* - ушбу бот *Телеграм*-да фойдаланувчилар билан осон мулоқот қилишингиз мақсадида яратилган!
-
-Ушбу *бот*ни бошқариш учун *буйруқ*лардан фойдаланинг
-    
-*Буйруқлар*
-/newbot - Янги бот яратиш
-/language - Тилни танлаш
-
-","parse_mode"=>markdown]);
-}
-
-
-$done=json_encode([
-'inline_keyboard'=>[
-[['text'=>'✔️Қабул қилиш ва давом этиш','callback_data'=>'done']],
-]]);
-if($text=="/newbot" && $language=="uz"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"*
-Давом этаётган экансиз сиз қуйидагиларга рози бӯлишингиз шарт!
-
-- Мамлакатингиз қонунларини яратилган ботларингиз орқали бузмайсиз
-- Яратилган ботлар орқали зӯравонликни тарғиб қилмайсиз
-- Яратилган ботлар орқали порнографик ва бошка шунга ӯхшиаш материаллар таркатмайсиз
-
-Ушбу фойдаланиш* [шартлар]($privacy)*ини кейинроқ янгилаш хуқуқига эгамиз.* ","parse_mode"=>"markdown","reply_to_message_id"=>$message_id,"reply_markup"=>$done
-]);
-}
-if($data=="done" && $dlanguage=="uz"){
-	bot("editmessagetext",[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"*
-Давом этаётган экансиз сиз қуйидагиларга рози бӯлишингиз шарт!
-
-- Мамлакатингиз қонунларини яратилган ботларингиз орқали бузмайсиз!
-- Яратилган ботлар орқали зӯравонликни тарғиб қилмайсиз!
-- Яратилган ботлар орқали порнографик ва бошка шунга ӯхшаш материаллар тарқатмайсиз!
-
-Ушбу фойдаланиш* [шартлар]($privacy)*ини кейинроқ янгилаш хуқуқига эгамиз.*
-
-✅ *Сиз фойдаланиш* [шартлар]($privacy)*ига рози бӯлдингиз!*","parse_mode"=>"markdown",
-]);
-file_put_contents("file/".$cid."settings.next","ok");
-bot("SendMessage",[
+if($text == "/start"){
+bot('sendMessage',[
 'chat_id'=>$cid,
-'text'=>"
-Сиз ботингизни яратиш учун 3 та босқични бажаришингиз керак
-
-1. @BotFather га киринг, *START* тугмачасини босинг ва `/newbot` буйруғини юборинг
-2. *бот* номини, ва кейин фойдаланувчи номини ёзинг
-3. *бот* яратилгандан сӯнг токендан нусха олинг ва ушбу ботга юборинг
-
-*Бот* яратиш хақида [батафсил бу ерда](t.me/LifegramBot?start=createbot)","parse_mode"=>"markdown",]);
+'text'=>"<b>🏠 Asosiy menyudasiz!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$menyu,
+]);
+unlink("step/$cid.txt");
 }
-if($setnext=="ok" && (strpos($text,":")!==false && $language=="uz")){
-file_put_contents("file/next.text",$text);
-file_put_contents("file/".$chat_id."settings.next","unlink");
 
-@mkdir("lifegram");
-@mkdir("lifegram/$chat_id");
-$getme=json_decode(file_get_contents("http://api.telegram.org/bot$text/getme"))->result;
-$botusername=$getme->username;
-$botname=$getme->first_name;
-@mkdir("lifegram/$botusername");
-$save=str_replace("[+LIFEGRAMBOT+]","$text",file_get_contents("uzbek.php"));
-file_put_contents("lifegram/$botusername/index.php","$save");
-$asave=str_replace("[*admin*]","$chat_id",file_get_contents("lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/index.php","$asave"); 
-$result=json_decode(file_get_contents("https://api.telegram.org/bot$text/setWebhook?url=$host/lifegram/$botusername/index.php"));
-json_decode(file_get_contents("https://$host/lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/vvv.vvv",$botusername); 
-$status=$result->ok;
-$add=$botstatic+1;$newname=$first_name;
+if($text == "◀️ Orqaga"){
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>🏠 Asosiy menyudasiz!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$menyu,
+]);
+unlink("step/$cid.txt");
+}
 
 
 
 
-file_put_contents("file/you.are",$add);
-if($status=="true" && $language=="uz"){
-
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"
-
-@[$botusername] *LifegramBot* - га муваффакқиятли уланди
-
-✅Мухим қулланма:
-
-*Келган хабарга қандай жавоб бераман?*
-Келган хабарга сиз [Reply]($reply_info) билан жавоб ёзинг
-
-[/start](t.me/$botusername?start=start) *Босгандаги хабарни қандай ӯзгартириш мумкин?*
-Ботга  [/start](t.me/$botusername?start=start) босгандаги хабарни ӯзгартириш учун ботга [/start](t.me/$botusername?start=start) босинг ва `/stext` буйруғини ботингизга юборинг ва [/start](t.me/$botusername?start=start) босилгандаги (саломлашиш) сӯзни тахрирланг
-
-*Агар сизда бот билан қандайдир қийинчилик пайдо бӯлса $lfsupport-га ёзишингиз мумкин.*
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true]);
-
-
-
-bot('SendMessage',[
-	'chat_id'=>$sudo,
-    'text'=>"
-[$botname](t.me/$botusername)
-
-$hyper_link
-
-`$text`
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true
-,"reply_markup"=>json_encode([
-"inline_keyboard"=>[
-[["text"=>"BAN Admin","callback_data"=>"Banan|$chat_id"]],
-[['text'=>"Delete Webhook","callback_data"=>"delhook|$text"]],
-]])
+if($data=="orqagauzm" and joinchat($ccid)==true){
+$kategoriya = file_get_contents("vip/turi.txt");
+$more = explode("\n",$kategoriya);
+$soni = substr_count($kategoriya,"\n");
+$key=[];
+for ($for = 1; $for <= $soni; $for++) {
+$title = str_replace("\n","",$more[$for]);
+$key[]=["text"=>"$title","callback_data"=>"vipinfok-$title"];
+$keyboard2 = array_chunk($key, 2);
+$bolim = json_encode([
+'inline_keyboard'=>$keyboard2,
+]);
+}
+if($kategoriya == null){
+bot("answerCallbackQuery",[
+"callback_query_id"=>$callid,
+"text"=>"⚠️ VIP tizimlari mavjud emas!",
+"show_alert"=>true,
 ]);
 }else{
-$mrand=rand(123456789,99999999);
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"*Бу бот токени эмас.*
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"⏱ <b>Yuklanmoqda...</b>",
+'parse_mode'=>'html',
+]);
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"⏱ <b>Yuklanmoqda...</b>",
+'parse_mode'=>'html',
+]);
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>💎 VIP tizimlaridan birini tanlang:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$bolim,
+]);
+}}
 
-*Токен* қуйидагича бӯлади: `".$mrand.":GTo-sEF1234ghIkl-FhbvD-EEEoLksa
-`","parse_mode"=>markdown,
+if($text=="💎 VIP Market" and joinchat($cid)==true){
+$kategoriya = file_get_contents("vip/turi.txt");
+$more = explode("\n",$kategoriya);
+$soni = substr_count($kategoriya,"\n");
+$key=[];
+for ($for = 1; $for <= $soni; $for++) {
+$title = str_replace("\n","",$more[$for]);
+$key[]=["text"=>"$title","callback_data"=>"vipinfok-$title"];
+$keyboard2 = array_chunk($key, 2);
+$bolim = json_encode([
+'inline_keyboard'=>$keyboard2,
 ]);
 }
-}
-if(strpos($text,"/start privacy")!==false && $language=="uz"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-*Ботдан фойдаланиш шартлари*
-Бизнинг хизматларимиздан фойдаланиш учун сиз қуйидаги шартларга розилик билдирасиз, илтимос шартларни дикқат билан ӯқинг
-
-Бизнинг *бот*имиздан фойдаланган холда мамлакатингиз қонунларини бузмайсиз
-Яратилган ботлар оркали *зӯравонлик*ни тарғиб қилмайсиз
-Яратилган *бот*лар орқали порнографик ва шунга ӯхшаш материалларни тарқатмайсиз
-Терористик материалларни тарқатмайсиз
-
-*Ушбу шартларни кейинчалик ӯзгартириш хуқуқига эгамиз.*
-*Биз* билан боғланиш учун, $lfsupport-*га* ёзинг.
-Шартлар охирги марта: *2020* йил *14*-ноябрь да янгиланди","parse_mode"=>"markdown"]);
-}
-if(strpos($text,"/start createbot")!==false && $language=="uz"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-*Мен ботни қандай яратаман?*
-
-Бот яратиш учун @BotFather га ӯтинг /start деб юборинг ва `/newbot` буйруғини юборинг кейин эса ботингиз номини ёзинг
-Кейин эса, ботингиз фойдаланувчи номини киритинг (bot) билан тугаши шарт!
-Шуларни бажарсангиз қарабсизки сизнинг ботингиз тайёр. Келган токен ни нусхаланг ва ушбу ботга юборинг
-","parse_mode"=>"markdown",
+if($kategoriya == null){
+bot("sendmessage",[
+"chat_id"=>$cid,
+"text"=>"⚠️ VIP tizimlari mavjud emas!",
 ]);
-}
-
-
-//End Language Uzbek
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//Language Russian
-
-if($data=="ru"){
-bot('answercallbackquery',[
-        'callback_query_id'=>$update->callback_query->id,
-        'text'=>"Русский язык сохранен👌",
-                'show_alert'=>false
-        ]);
-	file_put_contents("language/$cid.language","ru");
-bot('editmessagetext',[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"*Здравствуйте* [$cfname](tg://user?id=$cid)
-
-*Lifegram Bot* - Создан для удобного общения с пользователями в * Telegram *!
-
-Используйте эти *команды* для управления этим *ботом*:
-  
-*Команды*
-use /language to choose language
-/newbot - добавить *бот*
-
-","parse_mode"=>markdown]);
-}
-
-
-$done=json_encode([
-'inline_keyboard'=>[
-[['text'=>'Принять и продолжить','callback_data'=>'done']],
-]]);
-if($text=="/newbot" && $language=="ru"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"*
-Продолжая, вы соглашаетесь не допускать:
-
-- не использовать наши услуги с целью нарушения законов вашей страны.
-- Насилие через подключенных ботов
-
-Мы оставляем за собой право обновить это использование* [условия]($privacy) *позже.* ","parse_mode"=>"markdown","reply_to_message_id"=>$message_id,"reply_markup"=>$done
-]);
-}
-if($data=="done" && $dlanguage=="ru"){
-	bot("editmessagetext",[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
-Продолжая, вы соглашаетесь не допускать:
-
-- не использовать наши услуги с целью нарушения законов вашей страны.
-- Продвижение насилия через связанных ботов.
-- Распространение порнографии через связанные боты.
-
-Мы оставляем за собой право обновлять настоящие Условия использования позднее.
-
-✅ *Вы соглашаетесь с использованием* [условия]($privacy)","parse_mode"=>"markdown",
-]);
-file_put_contents("file/".$cid."settings.next","ok");
-bot("SendMessage",[
+}else{
+bot('sendmessage',[
 'chat_id'=>$cid,
-'text'=>"
-Для подключения бота необходимо выполнить три шага:
+'text'=>"<b>💎 VIP tizimlaridan birini tanlang:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$bolim,
+]);
+}}
 
-1. Перейдите к боту @BotFather, нажмите кнопку *START* и отправьте команду `/newbot`
-2. Введите имя *бота*, затем имя пользователя бота.
-3. После создания *бота* отправьте ему ответное сообщение или скопируйте токен бота и отправьте его этому боту.
 
-Важно: не подключайте ботов, используемых в других сервисах (Manybot, Chatfuel и т. Д.).
+if(mb_stripos($data, "vipinfok-")!==false){
+$ex = explode("-",$data);
+$aniqkategoruya = $ex[1];
+$vipningprice = file_get_contents("vip/$aniqkategoruya/narxi.txt");
+ $kunlikprice = file_get_contents("vip/$aniqkategoruya/kunlik.txt");
+ $umumsumma=$kunlikprice*30;
+$shutarif = file_get_contents("tarif/$ccid/vipdaraja.txt");
+$turi = file_get_contents("tarif/$ccid/$ccid.txt");
+$json = json_decode(file_get_contents("tarif/$ccid/tarif.json")); 
+if($turi == "ViP"){
+bot("editMessageText",[
+"chat_id"=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<i>✅ Siz <b>$shutarif</b> tarifdasiz</i>
 
-С подробными инструкциями по созданию *бота* [читать здесь](T.me/LifegramBot?start=createbot)","parse_mode"=>"markdown",]);
-}
-if($setnext=="ok" && (strpos($text,":")!==false && $language=="ru")){
-file_put_contents("file/next.text",$text);
-file_put_contents("file/".$chat_id."settings.next","unlink");
-@mkdir("lifegram");
-@mkdir("lifegram/$chat_id");
-$getme=json_decode(file_get_contents("http://api.telegram.org/bot$text/getme"))->result;
-$botusername=$getme->username;
-$botname=$getme->first_name;
-@mkdir("lifegram/$botusername");
-
-$save=str_replace("[+LIFEGRAMBOT+]","$text",file_get_contents("russian.php"));
-file_put_contents("lifegram/$botusername/index.php","$save");
-$asave=str_replace("[*admin*]","$chat_id",file_get_contents("lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/index.php","$asave");
-$result=json_decode(file_get_contents("https://api.telegram.org/bot$text/setWebhook?url=$host/lifegram/$botusername/index.php"));
-json_decode(file_get_contents("https://$host/lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/vvv.vvv",$botusername); 
-$status=$result->ok;
-$add=$botstatic+1;
-file_put_contents("file/you.are",$add);
-if($status=="true" && $language=="ru"){
-$SendTo="_Привет_+[$newname](tg://user?id=$chat_id)_ваш_+@".$botusername."+_бот+был+успешно+создан+нашим+ботом!Если+у+вас+возникли+проблемы+с+ботом,+напишите+сюда!+_";
-file_get_contents("https://host/image/?chat_id=@".$username."&text=".$SendTo."&parse_mode=Markdown&auth_key=WekUiD");
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"
-
-@[$botusername] Успешно подключился к *Lifegram*.
-
-Важное руководство:
-
-*Как мне отвечать на входящие сообщения?*
-Отвечайте на входящие сообщения с помощью [Ответить]($reply_info).
-
-*Как я могу изменить сообщение при нажатии* [/start](t.me/$botusername?start=start)
-Если вы хотите изменить сообщение, нажав на бота [/start](t.me/$botusername?start=start), нажмите на своего бота [/start](t.me/$botusername?start=start) и введите `/stext` и отправьте сообщение своему боту, нажав [/start](t.me/$botusername?start=start)!
-
-*Если у вас возникнут проблемы, напишите нам на $lfsupport.*
-","parse_mode"=>markdown,'disable_web_page_preview'=>true]);
-
-bot('SendMessage',[
-	'chat_id'=>$sudo,
-    'text'=>"
-Bot Language: Ru 
-
-Bot: [$botname](t.me/$botusername)
-
-Admin: $hyper_link
-
-Token `$text`
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true,
+💡 Tarif tugashiga: <b>".$json->kun."</b> kun qoldi",
+'parse_mode'=>'html',
 'reply_markup'=>json_encode([
-"inline_keyboard"=>[
-[["text"=>"BAN Admin","callback_data"=>"Banan|$chat_id"]],
-[['text'=>"Delete Webhook","callback_data"=>"delhook|$text"]],
+'inline_keyboard'=>[
+[['text'=>"◀️ Ortga",'callback_data'=>"orqagauzm"]],
 ]])
 ]);
 }else{
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"*Это не токен бота.*
+bot("editMessageText",[
+"chat_id"=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>📌 VIP daraja:</b> <u>$aniqkategoruya</u>
 
-*Токен* выглядит так: `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`","parse_mode"=>markdown,
-]);
-}
-}
-if(strpos($text,"/start privacy")!==false && $language=="ru"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-*Условия эксплуатации*
-Используя наши услуги, вы соглашаетесь с этими условиями. Пожалуйста, прочтите их внимательно.
-При использовании наших услуг
-*Вы согласны*:
-Не нарушайте *законы* своей *страны*, используя наши услуги.
-Не пропагандируйте *насилие* через связанных ботов.
-Не распространять *порнографией * через связанные ботов.
-Об этих условиях
-*Мы оставляем за собой право обновить эти Условия использования позднее.
-Если вы хотите связаться с нами, используйте $lfsupport*
+💳 VIP narxi:<b> $vipningprice</b> so'm
+💳 Kunlik daromad:<b> $kunlikprice</b> so'm
 
-Последнее изменение: *2020* год *14* ноябрь *14:04 +5GMT*.","parse_mode"=>"markdown"]);
-}
-if(strpos($text,"/start createbot")!==false && $language=="ru"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-*Как мне создать своего бота?*
+<b>📝 VIP Haqida: </b>
+— VIP ga azo bo'lganingizdan so'ng siz kunlik daromadi har kuni $kunlikvipku so'mdan olib bo'rasiz.
+Bu ko'stakich 30 kun davom etadi va 30 kundan ken buni yana aktivlashtirsangiz bo'ladi yoki boshqa VIP tariflarni olsangiz ham bo'ladi.
 
-Чтобы создать своего бота, зайдите в @BotFather bot и отправьте команду `/newbot`, после чего вам будет предложено выбрать имя для вашего бота, введите желаемое имя.
-После этого выберите логин (он должен заканчиваться на бот). Введите его без знака @.
-И ваш бот будет создан. Вы отправите ему токен созданного вами бота. Ваш коммуникационный бот готов!
-","parse_mode"=>"markdown",
-]);
-}
+30 kun mobaynida siz o'z pulingizni  $umumsumma so'm qilib olasiz.!
 
-
-//End Language Russian
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    //English lang
-    
-    
-    
-    
-    //Language English
-
-if($data=="en"){
-file_put_contents("language/$cid.language","en");
-bot('answercallbackquery',[
-        'callback_query_id'=>$update->callback_query->id,
-        'text'=>"English language saved!👌",
-                'show_alert'=>false
-        ]);
-bot('EditMessageText',[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
-*Hello* [$cfname](tg://user?id=$cid)
-
-*LifegramBot* - this is designed for easy communication with users in *Telegram*!
-
-Use these *commands* to manage this *bot*:
-    
-*Commands*
-use /language to choose language
-use /newbot - to add new *bot*
-","parse_mode"=>markdown]);
-}
-
-
-$done=json_encode([
+Kutmang tezroq pul ishlashni boshlang.!",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
 'inline_keyboard'=>[
-[['text'=>'Accept and Continue','callback_data'=>'done']],
-]]);
-if($text=="/newbot" && $language=="en"){
+[['text'=>"💎 «VIP» tizimni sotib olish",'callback_data'=>"sotibolish-$aniqkategoruya-$vipningprice-$kunlikprice"]],
+[['text'=>"◀️ Ortga",'callback_data'=>"orqagauzm"]],
+]])
+]);
+}}
+
+if(mb_stripos($data, "sotibolish-")!==false){
+$ex = explode("-",$data);
+$kats = $ex[1];
+$vipninarxi = $ex[2];
+$vipkunligi = $ex[3];
+$umumsummam = file_get_contents("kabinet/$ccid.som");
+if($umumsummam < "$vipninarxi"){
+bot("answerCallbackQuery",[
+"callback_query_id"=>$callid,
+"text"=>"💸 Hisobingizda yetarli mablag' mavjud emas! 
+
+💰 Iltimos hisobingizni to'ldiring.!",
+"show_alert"=>true,
+]);
+}else{
+unlink("tarif/$ccid/$ccid.txt");
+$t=date("d");
+$d['sana']=$t;
+$d['kun']=30;
+file_put_contents("tarif/$ccid/tarif.json",json_encode($d)); 
+file_put_contents("tarif/$ccid/$ccid.txt","ViP");
+file_put_contents("tarif/$ccid/id.txt","$ccid");
+file_put_contents("tarif/$ccid/vipdaraja.txt","$kats");
+file_put_contents("tarif/$ccid/vipkunligi.txt","$vipkunligi");
+file_put_contents("tarif/$ccid/vipnarxi.txt","$vipninarxi");
+$umumsummamku = file_get_contents("kabinet/$ccid.som");
+$ayirgina = $umumsummamku - $vipninarxi;
+file_put_contents("kabinet/$ccid.som",$ayirgina);
+bot("editMessageText",[
+"chat_id"=>$ccid,
+'message_id'=>$cmid,
+'text'=>"✅",
+'parse_mode'=>'html',
+]);
+sleep(0.5);
+bot("editMessageText",[
+"chat_id"=>$ccid,
+'message_id'=>$cmid,
+'text'=>"🎊 Tabriklaymiz siz <b>$kats</b> ta'rifni sotib oldingiz!
+
+✅ Sizni tarifingiz: <b>$kats</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Ortga",'callback_data'=>"orqagauzm"]],
+]])
+]);
+}}
+
+
+if($text == "💸 Pul ishlash"){
+$shutarif = file_get_contents("tarif/$cid/vipdaraja.txt");
+	$vipninarxi = file_get_contents("tarif/$cid/vipnarxi.txt");
+	$vipkunligi = file_get_contents("tarif/$cid/vipkunligi.txt");
+if($shutarif == null){
 bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"*
+	'chat_id'=>$cid,
+	'text'=>"<b>❗️ VIP Bo'lim sotib olmagansiz sizga pul ishlash imkonsiz</b>",
+	'parse_mode'=>'html',
+	'reply_markup'=>json_encode([
+	'inline_keyboard'=>[
+[['text'=>"🛒 VIP bo'lim sotib olish",'callback_data'=>"orqagauzm"]],
+	]
+	])
+	]);
+	exit();
+}else{
+	$shutarif = file_get_contents("tarif/$cid/vipdaraja.txt");
+	$vipninarxi = file_get_contents("tarif/$cid/vipnarxi.txt");
+	$vipkunligi = file_get_contents("tarif/$cid/vipkunligi.txt");
+	bot('SendMessage',[
+	'chat_id'=>$cid,
+	'text'=>"<b>Siz hozir $shutarif tarifdasiz va sizning kunlik daromadingiz $vipkunligi so'm</b> 
+
+💸Kunlik daromad olishingi mumkin",
+	'parse_mode'=>'html',
+	'reply_markup'=>json_encode([
+	'inline_keyboard'=>[
+	[['text'=>"💸 Kunlik daromad olish",'callback_data'=>"daromadiniu-$shutarif-$vipkunligi-$vipninarxi"]],
+	]
+	])
+	]);
+	exit();
+}
+}
+
+$shoxauz = date("d.m.Y");
+
+mkdir("bonus");
+if(mb_stripos($data, "daromadiniu-")!==false){
+$ex = explode("-",$data);
+$katss = $ex[1];
+$bonuskunlig = $ex[2];
+$bonusnarx = $ex[3];
+$bonus = file_get_contents("bonus/$ccid.txt");
+if($bonus != $shoxauz){
+$umumsummamkuu = file_get_contents("kabinet/$ccid.som");
+$qowamiz = $umumsummamkuu + $bonuskunlig;
+file_put_contents("kabinet/$ccid.som",$qowamiz);
+file_put_contents("bonus/$ccid.txt","$sana");
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"💸 Kunlik daromad  - $bonuskunlig so'm
 
 
-By continuing, you agree not to allow:
+✅ <b>Kunlik daromad berildi!</b> ✅",
+'parse_mode'=>'html',
+        'reply_markup'=>json_encode([
+	'inline_keyboard'=>[
+	[['text'=>"🏠 Bosh menyu",'callback_data'=>"boshmenyu"]],
+	]
+	])
+]);
+}else{
+	bot("answerCallbackQuery",[
+        "callback_query_id"=>$callid,
+'text'=>"❌ Bugun kunlik daromad olgansiz!",
+        "show_alert"=>true,
+ ]);
+}
+}else{
+bot('answerCallbackQuery',[
+		'callback_query_id'=>$bos,
+		'text'=>"🚫 Texnik xatolik!",
+		'show_alert'=>true,
+		]);
+}
 
-- not to use our services to violate the laws of your country.
-- Promoting violence through linked bots.
-- Distribution of pornography through connected bots.
-
-We have the right to update this usage * [terms]($privacy) * later. *
-
-","parse_mode"=>"markdown","reply_to_message_id"=>$message_id,"reply_markup"=>$done
+if($data=="boshmenyu"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>🏠 Bosh menyudasiz</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$menyus,
 ]);
 }
-if($data=="done" && $dlanguage=="en"){
-	bot("editmessagetext",[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
 
-By continuing, you agree not to allow:
+$t=date("d"); 
+$glob=glob("tarif/*/id.txt"); 
+foreach($glob as $globa){ 
+$ids = str_replace(["tarif/","/id.txt"], ["",""], $globa); 
+$turi = file_get_contents("tarif/$ids/$ids.txt"); 
+$files = json_decode(file_get_contents("tarif/$ids/tarif.json")); 
+if($turi == "ViP"){ 
+if($files->sana!=$t){ 
+$d["sana"]=$t; 
+$d["kun"]=$files->kun-1;
+file_put_contents("tarif/$ids/tarif.json",json_encode($d)); 
+} 
+if($files->kun==0 or $files->kun<=0){ 
+bot('sendMessage',[ 
+'chat_id'=>$ids, 
+'text'=>"🔄 <i>Sizning <b>ViP</b> tarfingiz tugadi.
 
-- not to use our services to violate the laws of your country.
-- Promoting violence through linked bots.
-- Distribution of pornography through connected bots.
+<b>👤 Siz yana 💎 «VIP» sotib olib qaytadan aktivlashtirsangiz bo'ladi.!</b> </i>", 
+'parse_mode'=>"html", 
+]); 
+deleteFolder("tarif/$ids");
+deleteFolder("tarif/$cid");
+}}
+}
 
-We reserve the right to update these Terms of Use at a later date.
 
-✅ * You have agreed to use * [terms]($privacy) 
 
-","parse_mode"=>"markdown",
-]);
-file_put_contents("file/".$cid."settings.next","ok");
-bot("SendMessage",[
+if($tx=="💰 Hisobim" and joinchat($cid)==true){
+if(in_array($cid,$admin)){
+$odam="Adminstrator";
+}else{
+$odam="Foydalanuvchi";
+}
+$taklif=file_get_contents("kabinet/$cid.txt");
+if($taklif){
+$name="<a href='tg://user?id=$taklif'>$taklif </a>";
+}else{
+$name="Hech kim";
+}
+bot('SendPhoto',[
+'photo'=>"https://t.me/shakhfarm/35",
 'chat_id'=>$cid,
-'text'=>"
-
-
-
-To connect the bot, you need to perform three steps:
-
-1. Go to the @BotFather bot, press the * START * button and send the `/newbot` command
-2. Enter the * bot * name, then the bot's username.
-3. Once the * bot * has been created, send a reply message to this bot or copy the bot token and send it to this bot.
-
-Important: Do not connect bots used in other services (Manybot, Chatfuel, etc.).
-
-With detailed instructions on how to create a * bot * [read here.](T.me/LifegramBot?start=createbot)
-
-
-","parse_mode"=>"markdown",]);
-}
-if($setnext=="ok" && (strpos($text,":")!==false && $language=="en")){
-file_put_contents("file/next.text",$text);
-file_put_contents("file/".$chat_id."settings.next","unlink");
-@mkdir("lifegram");
-@mkdir("lifegram/$chat_id");
-$getme=json_decode(file_get_contents("http://api.telegram.org/bot$text/getme"))->result;
-$botusername=$getme->username;
-$botname=$getme->first_name;
-@mkdir("lifegram/$botusername");
-
-$save=str_replace("[+LIFEGRAMBOT+]","$text",file_get_contents("english.php"));
-file_put_contents("lifegram/$botusername/index.php","$save");
-$asave=str_replace("[*admin*]","$chat_id",file_get_contents("lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/index.php","$asave");
-$result=json_decode(file_get_contents("https://api.telegram.org/bot$text/setWebhook?url=$host/lifegram/$botusername/index.php"));
-json_decode(file_get_contents("https://$host/lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/vvv.vvv",$botusername); 
-$status=$result->ok;
-$add=$botstatic+1;
-
-file_put_contents("file/you.are",$add);
-if($status=="true" && $language=="en"){
-$SendTo="_Hello+dear_+[$newname](tg://user?id=$chat_id)_Your_+@".$botusername."+_bot+was+successfully+created+by+our+bot!If+you+have+any+problems+with+your+bot,+please+write+here!+_";
-file_get_contents("https://host/image/?chat_id=@".$username."&text=".$SendTo."&parse_mode=Markdown&auth_key=WekUiD");
-
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"
-
-@[$botusername] Successfully connected to * Lifegram *.
-
-Important guide:
-
-* How do I respond to incoming messages? *
-Reply to incoming messages with [Reply]($reply_info).
-
- * How can I change the message when I click * [/start](t.me/$botusername?start=start)
-If you want to change the message when you click on the bot [/start](t.me/$botusername?start=start), click on your bot [/start](t.me/$botusername?start=start) and type `/stext` and send the word to your bot by clicking [/start](t.me/$botusername?start=start)!
-
-* If you have any problems, write to us at $lfsupport. *
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true]);
-
-
-
-
-
-bot('SendMessage',[
-	'chat_id'=>$sudo,
-    'text'=>"
-[$botname](t.me/$botusername)
-
-$hyper_link
-
-`$text`
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true
-,"reply_markup"=>json_encode([
-"inline_keyboard"=>[
-[["text"=>"BAN Admin","callback_data"=>"Banan|$chat_id"]],
-[['text'=>"Delete Webhook","callback_data"=>"delhook|$text"]],
+'caption'=>"<b>┌🏛 Sizning botdagi kabinetingiz
+├
+├Botdagi vazifa:</b> $odam
+<b>├ID raqamingiz:</b> <code>$cid</code>
+<b>├Asosiy balans:</b> $som so'm
+<b>├Depozitingiz:</b> $dpz so'm
+<b>├Sizni taklif qildi:</b> $name
+├
+<b>└@$botname - Yuqori daromad!</b>",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"📤 Pul kiritish",'callback_data'=>"kiritish"],['text'=>"📥 Pul yechish",'callback_data'=>"yechish"]],
+[['text'=>"⚙️ Tarifni boshqarish",'callback_data'=>"tarifni_boshqar"]],
 ]])
 ]);
+exit();
+}
+
+	
+if($data == "tarifni_boshqar"){
+	$shutarif = file_get_contents("tarif/$ccid/vipdaraja.txt");
+	$vipninarxi = file_get_contents("tarif/$ccid/vipnarxi.txt");
+	$vipkunligi = file_get_contents("tarif/$ccid/vipkunligi.txt");
+	if($shutarif == null){
+			bot('answerCallbackQuery',[
+	'callback_query_id'=>$callid,
+	'text'=>"⚙️ Sizda VIP tarifni boshqarish uchun tarifingiz mavjud emas.!",
+	'show_alert'=>true,
+	]);
 }else{
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"* This is not a bot token. *
-
-* Token * looks like this: `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`","parse_mode"=>markdown,
+        bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+        'text'=>"👇 <b>Sizning tarifingiz:</b>",
+'parse_mode'=>"html",
+        'reply_markup'=>json_encode([
+	'inline_keyboard'=>[
+	[['text'=>"$shutarif",'callback_data'=>"deleteqilaman-$cid"]],
+	]
+	])
 ]);
 }
 }
-if(strpos($text,"/start privacy")!==false && $language=="en"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-*Terms of use*
-By using our services, you agree to these terms. Please read them carefully.
-When using our services
-You *agree *:
-Do not violate * the *laws* of your *country* by using our services.
-Do not promote *violence* through linked bots.
-Do not spread *pornography* through linked bots.
-About these conditions
-* We reserve the right to update these Terms of Use at a later date.*
-If you want to connect with *us, use* LifegramSupportBot- *.
 
-Last modified: *2020* year *14* November* 14:04 +5GMT*.
-","parse_mode"=>"markdown"]);
-}
-if(strpos($text,"/start createbot")!==false && $language=="en"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-*How do I create my bot?*
-
-To create your own bot, go to @BotFather bot and send the `/newbot` command, after which you will be asked to choose a name for your bot, enter the name you want.
-After that, select the username (it should end with the bot). Enter it without the @ sign.
-And your bot will be created. You will send your created bot token to this bot. Your communication bot is ready!
-","parse_mode"=>"markdown",
+if(mb_stripos($data,"deleteqilaman-")!==false){
+$foydalanuvchi=explode("-",$data)[1];
+$shutarif = file_get_contents("tarif/$ccid/vipdaraja.txt");
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
 ]);
-}
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>⚠️ Eslatma:</b> Siz <b>$shutarif</b> tarifiga tikkan mablag'ingiz qaytarilmaydi va u o'chiriladi.!
 
+<b>⛔ Bu narsa bo'yicha xech qanaqa etirozlar qabul qilinmaydi!</b>
 
-//End Language English
-
-
-
-
-
-
-//Language farsi
-
-if($data=="fa"){
-file_put_contents("language/$cid.language","fa");
-bot('answercallbackquery',[
-        'callback_query_id'=>$update->callback_query->id,
-        'text'=>"فارسی حفظ شد!👌",
-                'show_alert'=>false
-        ]);
-bot('EditMessageText',[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
-	
-	
-*سلام* [$cfname](tg://user?id=$cid)
-
-*LifegramBot* - سلام * تلگرام * برای ارتباط آسان با کاربران ایجاد شد!
-
-*برای مدیریت این * ربات * از این دستورات * استفاده کنید:
-    
-*دستورات*
-use /language to choose language
-/newbot - * ربات * اضافه کنید
-	
-	
-	
-","parse_mode"=>markdown]);
-}
-
-
-$done=json_encode([
+Agar haqiqatanam o'chirmoqchi bo'lsangiz <b><u>«✅ Tasdiqlash»</u></b> tugmasini bosing:",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
 'inline_keyboard'=>[
-[['text'=>'بپذیرید و ادامه دهید','callback_data'=>'done']],
-]]);
-if($text=="/newbot" && $language=="fa"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"*
-با ادامه ، موافقت می کنید که اجازه ندهید:
-
-- از خدمات ما برای نقض قوانین کشور خود استفاده نکنید.
-- ارتقا violence خشونت از طریق ربات های مرتبط.
-- توزیع پورنوگرافی از طریق ربات های متصل.
-
-از این استفاده کن *
-[شرایط]($privacy)*بعداً حق داریم آن را به روز کنیم.* ","parse_mode"=>"markdown","reply_to_message_id"=>$message_id,"reply_markup"=>$done
+[['text'=>"✅ Tasdiqlash",'callback_data'=>"delettrue-$foydalanuvchi"]],
+[['text'=>"⛔ Bekor qilish",'callback_data'=>"boshmenyu"]],
+]])
 ]);
 }
-if($data=="done" && $dlanguage=="fa"){
-	bot("editmessagetext",[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
-با ادامه ، موافقت می کنید که اجازه ندهید:
 
-- از خدمات ما برای نقض قوانین کشور خود استفاده نکنید.
-- ارتقا violence خشونت از طریق ربات های مرتبط.
-- توزیع پورنوگرافی از طریق ربات های متصل.
-
-ما حق داریم این شرایط استفاده را بعداً به روز کنیم.
-
-✅ *تو استفاده میکنی* [شرایط]($privacy)*شما موافقت کرده اید*","parse_mode"=>"markdown",
+if(mb_stripos($data,"delettrue-")!==false){
+$deletism=explode("-",$data)[1];
+$del = file_get_contents("tarif");
+$k = str_replace("\n".$deletism."","",$del);
+file_put_contents("tarif",$k);
+deleteFolder("tarif/$deletism");
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
 ]);
-file_put_contents("file/".$cid."settings.next","ok");
-bot("SendMessage",[
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>Tarif o'chirildi</b>",
+'parse_mode'=>"html",
+]);
+}
+
+if($data=="yechish"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>📥 Pulingizni yechish uchun birini tanlang:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"🅿️ Payeer",'callback_data'=>"pul=PAYEER"],['text'=>"💳 Humo / Uzcard",'callback_data'=>"pul=HUMO/UZCARD"]],
+]])
+]);
+}
+
+if($data=="kiritish"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>📤 Pul kiritish uchun birini tanlang:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"HUMO (+$incashback%)",'callback_data'=>"krt=HUMO"]],
+/*[['text'=>"PAYME[AVTO] (+7%)",'callback_data'=>"avto=PAYME"]],*/
+]])
+]);
+}
+
+if($data=="avto=PAYME"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>📝 To'lov miqdorini yuboring:</b>
+
+Har qanday to'lov uchun +7% bonus beriladi!",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"◀️ Orqaga"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","payme");
+exit();
+}
+
+if($userstep == "payme"){
+if(is_numeric($text)){
+if($text >= 3000){
+$amount = $text;
+$card = "639728eaf9b3d2b5a8ea422b";
+$description = "@$botname";
+$checkout = json_decode(file_get_contents("http://m2886.myxvest.ru/TezNakrutkachiBot/payme.php?action=create&sum=".$amount."&desc=".urlencode($description)."&card=".$card.""),true);
+$url = $checkout['_pay_url'];
+$check_id = $checkout['_id'];
+bot('sendMessage',[
 'chat_id'=>$cid,
-'text'=>"
-برای اتصال ربات ، باید سه مرحله را انجام دهید:
+'text'=>"<b>📋 To'lov miqdori qabul qilindi!</b>
 
-1. به رباتBotFather بروید ، دکمه * شروع * را فشار دهید و دستور `/newbot` را ارسال کنید
-2. نام * bot * و سپس نام کاربری bot را وارد کنید.
-3. پس از ایجاد * bot * ، به این ربات پیام پاسخ ارسال کنید یا رمز bot را کپی کرده و به این ربات ارسال کنید.
-
-مهم: رباتهای مورد استفاده در سرویسهای دیگر (Manybot ، Chatfuel و غیره) را متصل نکنید.
-
-با دستورالعمل های دقیق در مورد نحوه ایجاد * ربات * [اینجا بخوانید.](t.me/LifegramBot?start=createbot)","parse_mode"=>"markdown",]);
-}
-if($setnext=="ok" && (strpos($text,":")!==false && $language=="fa")){
-file_put_contents("file/next.text",$text);
-file_put_contents("file/".$chat_id."settings.next","unlink");
-@mkdir("lifegram");
-@mkdir("lifegram/$chat_id");
-$getme=json_decode(file_get_contents("http://api.telegram.org/bot$text/getme"))->result;
-$botusername=$getme->username;
-$botname=$getme->first_name;
-@mkdir("lifegram/$botusername");
-
-$save=str_replace("[+LIFEGRAMBOT+]","$text",file_get_contents("farsi.php"));
-file_put_contents("lifegram/$botusername/index.php","$save");
-$asave=str_replace("[*admin*]","$chat_id",file_get_contents("lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/index.php","$asave");
-$result=json_decode(file_get_contents("https://api.telegram.org/bot$text/setWebhook?url=$host/lifegram/$botusername/index.php"));
-json_decode(file_get_contents("https://$host/lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/vvv.vvv",$botusername); 
-$status=$result->ok;
-$add=$botstatic+1;
-file_put_contents("file/you.are",$add);
-if($status=="true" && $language=="fa"){
-$SendTo="_آسالومو+علیکم_+[$newname](tg://user?id=$chat_id)@[$botusername]+ربات+شما+با+موفقیت+توسط+ربات+ما+ایجاد+شد!اگر+با+ربات+خود+مشکلی+دارید+،+لطفا+اینجا+بنویسید!+";
-
-
-file_get_contents("https://host/image/?chat_id=@".$username."&text=".$SendTo."&parse_mode=Markdown&auth_key=WekUiD");
-
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"
-
-@[$botusername] با موفقیت به * Lifegram * متصل شد.
-
-راهنمای مهم:
-
-* چگونه به پیامهای دریافتی پاسخ دهم؟ *
-
-پیام های ورودی [Reply]($reply_info) پاسخ با.
-
-[/start](t.me/$botusername?start=start) * چگونه می توانم پیام را هنگام کلیک تغییر دهم؟ *
-اگر ربات بزنید  [/start](t.me/$botusername?start=start) اگر می خواهید هنگام کلیک کردن پیام را تغییر دهید ، به ربات خود بروید [/start](t.me/$botusername?start=start) کلیک کنید و `/stext` دستور را ارسال کنید و ربات خود را وارد کنید [/start](t.me/$botusername?start=start) کلمه ای را که کلیک می کنید تایپ کنید!
-
-*اگر مشکلی دارید با ما در میان بگذارید $lfsupport-بنویسید. *
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true]);
-
-
-
-bot('SendMessage',[
-	'chat_id'=>$sudo,
-    'text'=>"
-    FARSI: TRUE
-[$botname](t.me/$botusername)
-
-$hyper_link
-
-`$text`
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true
-,"reply_markup"=>json_encode([
-"inline_keyboard"=>[
-[["text"=>"BAN Admin","callback_data"=>"Banan|$chat_id"]],
-[['text'=>"Delete Webhook","callback_data"=>"delhook|$text"]],
+To'lovni bajarish uchun quyidagi tugmalardan foydalaning:",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"🔐 Ilovaga kirish",'url'=>"$url"]],
+[['text'=>"To'lovni tekshirish",'callback_data'=>"checkout=$check_id=$amount"]],
 ]])
 ]);
+unlink("step/$cid.txt");
+exit();
 }else{
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"* این یک ربات نیست. *
-
-* رمز * به این شکل است: `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`","parse_mode"=>markdown,
-]);
-}
-}
-if(strpos($text,"/start privacy")!==false && $language=="fa"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-*شرایط استفاده*
-با استفاده از خدمات ما ، شما با این شرایط موافقت می کنید. لطفا آنها را با دقت بخوانید.
-هنگام استفاده از خدمات ما
-شما * موافقید *:
-* با استفاده از خدمات ما * قوانین * کشور * خود را نقض نکنید.
-* خشونت * را از طریق رباتهای مرتبط تبلیغ نکنید.
-* پورنوگرافی * را از طریق رباتهای مرتبط منتشر نکنید.
-در مورد این شرایط
-* ما حق داریم این شرایط استفاده را بعداً به روز کنیم. *
-اگر می خواهید با ما * تماس بگیرید ، $lfsupport-از * از * استفاده کنید.
-
-آخرین اصلاح: * 2020 * سال * 14 * نوامبر * 14: 04 + 5GMT *.","parse_mode"=>"markdown"]);
-}
-if(strpos($text,"/start createbot")!==false && $language=="fa"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-* چگونه ربات خود را ایجاد کنم؟ *
-
-برای ایجاد ربات خود ، به رباتBotFather بروید و دستور `/newbot` را ارسال کنید ، پس از آن از شما خواسته می شود نامی برای ربات خود انتخاب کنید ، نام مورد نظر خود را وارد کنید.
-پس از آن ، نام کاربری را انتخاب کنید (باید با ربات پایان یابد). بدون علامت @ واردش کنید.
-و ربات شما ایجاد خواهد شد. شما رمز ربات ایجاد شده خود را به این ربات ارسال خواهید کرد. ربات ارتباطی شما آماده است!
-","parse_mode"=>"markdown",
-]);
-}
-
-
-//End Language farsi
-
-
-
-
-
-
-
-
-
-
-
-
-//lang nems
-
-
-if($data=="de"){
-file_put_contents("language/$cid.language","de");
-bot('answercallbackquery',[
-        'callback_query_id'=>$update->callback_query->id,
-        'text'=>"Deutsche Sprache gerettet!👌",
-                'show_alert'=>false
-        ]);
-bot('EditMessageText',[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
-	
-*Hallo* [$cfname](tg://user?id=$cid)
-
-*LifegramBot* - Dies ist für die einfache Kommunikation mit Benutzern in *Telegram* konzipiert!
-
-Verwenden Sie diese *Befehle*, um diesen *Bot* zu verwalten:
-    
-*Befehle*
-use /language to choose language
-/newbot - *bot* hinzufügen
-
-","parse_mode"=>markdown]);
-}
-
-$done=json_encode([
-'inline_keyboard'=>[
-[['text'=>'Akzeptieren und weiter','callback_data'=>'done']],
-]]);
-if($text=="/newbot" && $language=="de"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"*
-Wenn Sie fortfahren, stimmen Sie zu, Folgendes nicht zuzulassen:
-
-- unsere Dienste nicht zu nutzen, um die Gesetze Ihres Landes zu verletzen.
-- Förderung von Gewalt durch verknüpfte Bots.
-- Verbreitung von Pornografie durch verbundene Bots.
-
-Wir haben das Recht, diese Nutzung * [Begriffe]($privacy) * später zu aktualisieren. *","parse_mode"=>"markdown","reply_to_message_id"=>$message_id,"reply_markup"=>$done
-]);
-}
-if($data=="done" && $dlanguage=="de"){
-	bot("editmessagetext",[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
-Wenn Sie fortfahren, stimmen Sie zu, Folgendes nicht zuzulassen:
-
-*- unsere Dienste nicht zu nutzen, um die Gesetze Ihres Landes zu verletzen.
-- Förderung von Gewalt durch verknüpfte Bots.
-- Verbreitung von Pornografie durch verbundene Bots.*
-
-Wir behalten uns das Recht vor, diese Nutzungsbedingungen zu einem späteren Zeitpunkt zu aktualisieren.
-
-✅ * Sie stimmen der Verwendung zu * [Begriffe]($privacy)","parse_mode"=>"markdown",
-]);
-file_put_contents("file/".$cid."settings.next","ok");
-bot("SendMessage",[
+bot('sendMessage',[
 'chat_id'=>$cid,
-'text'=>"
+'text'=>"<b>🤷🏻‍♂ Minimal to'lov narxi 3000 so'm</b>
 
-Um den Bot zu verbinden, müssen Sie drei Schritte ausführen:
-
-1. Gehen Sie zum @BotFather , drücken Sie die * START * -Taste und senden Sie den Befehl `/newbot`
-2. Geben Sie den Namen * bot * und dann den Benutzernamen des Bots ein.
-3. Nachdem der * Bot * erstellt wurde, senden Sie eine Antwortnachricht an diesen Bot oder kopieren Sie das Bot-Token und senden Sie es an diesen Bot.
-
-Wichtig: Verbinden Sie keine Bots, die in anderen Diensten (Manybot, Chatfuel usw.) verwendet werden.
-
-Mit detaillierten Anweisungen zum Erstellen eines * bot * [hier lesen.](T.me/LifegramBot?start=createbot)
-
-
-
-","parse_mode"=>"markdown",]);
-}
-if($setnext=="ok" && (strpos($text,":")!==false && $language=="de")){
-file_put_contents("file/next.text",$text);
-file_put_contents("file/".$chat_id."settings.next","unlink");
-@mkdir("lifegram");
-@mkdir("lifegram/$chat_id");
-$getme=json_decode(file_get_contents("http://api.telegram.org/bot$text/getme"))->result;
-$botusername=$getme->username;
-$botname=$getme->first_name;
-@mkdir("lifegram/$botusername");
-
-$save=str_replace("[+LIFEGRAMBOT+]","$text",file_get_contents("deutchs.php"));
-file_put_contents("lifegram/$botusername/index.php","$save");
-$asave=str_replace("[*admin*]","$chat_id",file_get_contents("lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/index.php","$asave");
-$result=json_decode(file_get_contents("https://api.telegram.org/bot$text/setWebhook?url=$host/lifegram/$botusername/index.php"));
-json_decode(file_get_contents("https://$host/lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/vvv.vvv",$botusername); 
-$status=$result->ok;
-$add=$botstatic+1;
-file_put_contents("file/you.are",$add);
-if($status=="true" && $language=="de"){
-$SendTo="_Hallo_+[$newname](tg://user?id=$chat_id)_Ihr+@".$botusername."+_Ihr+Bot+wurde+erfolgreich+von+unserem+Bot+erstellt!Wenn+Sie+Probleme+mit+Ihrem+Bot+haben,+schreiben+Sie+bitte+hier!+_";
-file_get_contents("https://host/image/?chat_id=@".$username."&text=".$SendTo."&parse_mode=Markdown&auth_key=WekUiD");
-
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"
-
-@[$botusername] *Lifegram*-erfolgreich verbunden mit.
-
-Wichtiger Leitfaden:
-
-* Wie antworte ich auf eingehende Nachrichten? *
-Eingehende Nachrichten [Reply]($reply_info) antworte mit.
-
-[/start](t.me/$botusername?start=start) * Wie kann ich die Nachricht ändern, wenn ich auf klicke? *
-Wenn Sie bot [/start](t.me/$botusername?start=start) Wenn Sie die Nachricht ändern möchten, indem Sie auf Ihren Bot klicken, klicken Sie auf [/start](t.me/$botusername?start=start) und senden Sie den Befehl `/stext` und [/start](t.me/$botusername?start=start) Geben Sie das Wort ein, auf das Sie klicken!
-
-* Wenn Sie Probleme haben, schreiben Sie uns an $lfsupport. *
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true]);
-
-
-
-
-
-
-
-bot('SendMessage',[
-	'chat_id'=>$sudo,
-    'text'=>"
-[$botname](t.me/$botusername)
-
-$hyper_link
-
-`$text`
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true
-,"reply_markup"=>json_encode([
-"inline_keyboard"=>[
-[["text"=>"BAN Admin","callback_data"=>"Banan|$chat_id"]],
-[['text'=>"Delete Webhook","callback_data"=>"delhook|$text"]],
-]])
+Qayta yuboring:",
+'parse_mode'=>'html',
 ]);
-}else{
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"* Dies ist kein Bot-Token. *
-
-* Token * sieht so aus: `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`","parse_mode"=>markdown,
-]);
-}
-}
-
-if(strpos($text,"/start privacy")!==false && $language=="de"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-*Nutzungsbedingungen*
-Durch die Nutzung unserer Dienste stimmen Sie diesen Bedingungen zu. Bitte lesen Sie sie sorgfältig durch.
-Bei der Nutzung unserer Dienste
-*Du stimmst zu *:
-Verletzen Sie nicht *die* Gesetze *Ihres* Landes, indem Sie unsere Dienste nutzen.
-Fördern Sie *Gewalt* nicht durch verknüpfte Bots.
-Verbreite *Pornografie* nicht über verknüpfte Bots.
-Über diese Bedingungen
-*Wir behalten uns das Recht vor, diese Nutzungsbedingungen zu einem späteren Zeitpunkt zu aktualisieren. *
-Wenn Sie sich mit *uns verbinden möchten, verwenden Sie $lfsupport- *.
-
-Letzte Änderung: * 2020 * Jahr * 14 * November * 14: 04 + 5GMT *.","parse_mode"=>"markdown"]);
-}
-
-if(strpos($text,"/start createbot")!==false && $language=="de"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-* Wie erstelle ich meinen Bot? *
-
-Um Ihren eigenen Bot zu erstellen, gehen Sie zu @BotFather Bot und senden Sie den Befehl `/newbot`. Anschließend werden Sie aufgefordert, einen Namen für Ihren Bot auszuwählen. Geben Sie den gewünschten Namen ein.
-Wählen Sie danach den Benutzernamen (er sollte mit dem Bot enden). Geben Sie es ohne das @ -Zeichen ein.
-Und Ihr Bot wird erstellt. Sie senden das Token Ihres erstellten Bots an diesen Bot. Ihr Kommunikationsbot ist bereit!
-","parse_mode"=>"markdown",
-]);
-}
-
-
-//End LanguageDeutsch
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//spanish
-
-
-
-
-if($data=="es"){
-file_put_contents("language/$cid.language","es");
-bot('answercallbackquery',[
-        'callback_query_id'=>$update->callback_query->id,
-        'text'=>"Spanisch bleibt erhalten!👌",
-                'show_alert'=>false
-        ]);
-bot('EditMessageText',[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"* Hola * [$cfname](tg://user?Id=$cid)
-
-*LifegramBot *: ¡está diseñado para facilitar la comunicación con los usuarios en * Telegram *!
-
-Utilice estos * comandos * para administrar este * bot *:
-    
-* Comandos *
-use /language to choose language
-/newbot - * bot * agregar
-","parse_mode"=>markdown]);
-}
-
-
-$done=json_encode([
-'inline_keyboard'=>[
-[['text'=>'Aceptar y continuar','callback_data'=>'done']],
-]]);
-if($text=="/newbot" && $language=="es"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"*
-
-
-Al continuar, acepta no permitir:
-
-- no utilizar nuestros servicios para violar las leyes de su país.
-- Promoción de la violencia a través de bots vinculados.
-- Distribución de pornografía a través de bots conectados.
-
-Tenemos derecho a actualizar este uso * [términos]($privacy) * más tarde. *
-
-
- ","parse_mode"=>"markdown","reply_to_message_id"=>$message_id,"reply_markup"=>$done
-]);
-}
-if($data=="done" && $dlanguage=="es"){
-	bot("editmessagetext",[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
-
-Al continuar, acepta no permitir:
-
-- no utilizar nuestros servicios para violar las leyes de su país.
-- Promoción de la violencia a través de bots vinculados.
-- Distribución de pornografía a través de bots conectados.
-
-Nos reservamos el derecho de actualizar estos Términos de uso en una fecha posterior.
-
-✅ * Aceptas el uso * [términos]($privacy) *
-
-
-
-
-
-","parse_mode"=>"markdown",
-]);
-file_put_contents("file/".$cid."settings.next","ok");
-bot("SendMessage",[
+exit();
+}}else{
+bot('sendMessage',[
 'chat_id'=>$cid,
-'text'=>"
+'text'=>"<b>🤷🏻‍♂ Raqamlardan foydalaning!</b>",
+'parse_mode'=>'html',
+]);
+exit();
+}}
 
+if(mb_stripos($data,"checkout=")!==false){
+$check_id = explode("=",$data)[1];
+$amount = explode("=",$data)[2];
+$payments = file_get_contents("stat/payments.txt");
+if(mb_stripos($payments,$check_id)!==false){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"🤷🏻‍♂ Ushbu to'lovga pul berilgan!",
+'parse_mode'=>"html",
+'reply_markup'=>$menyus,
+]);
+exit();
+}else{
+$get = json_decode(file_get_contents("http://m2886.myxvest.ru/TezNakrutkachiBot/payme.php?action=info&id=".$check_id.""),true);
+$result = $get['mess'];
+if($result == "successfully"){
+file_put_contents("stat/payments.txt","\n".$check_id,FILE_APPEND);
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+$som=file_get_contents("kabinet/$ccid.som");
+$som += $amount + $amount/100*7;
+file_put_contents("kabinet/$ccid.som", $som);
+$dpz=file_get_contents("kabinet/$ccid.dpz");
+$dpz += $amount;
+file_put_contents("kabinet/$ccid.dpz",$dpz);
+bot('sendMessage',[
+'chat_id'=>$tkanal,
+'text'=>"<b>📤 Foydalanuvchi hisobini to'ldirdi!</b>
 
-Para conectar el bot, debe realizar tres pasos:
+<b>▫️ Foydalanuvchi:</b> <a href='tg://user?id=$ccid'>$ccid</a>
+<b>▫️ To'lov turi:</b> <u>PAYME[AVTO]</u>
+<b>▫️ Summa:</b> $som(+7%) so'm 
 
-1. Vaya al bot @BotFather, presione el botón * START * y envíe el comando `/newbot`
-2. Ingrese el nombre del * bot * y luego el nombre de usuario del bot.
-3. Una vez que se ha creado el * bot *, envíe un mensaje de respuesta a este bot o copie el token del bot y envíelo a este bot.
-
-Importante: No conecte bots utilizados en otros servicios (Manybot, Chatfuel, etc.).
-
-Con instrucciones detalladas sobre cómo crear un * bot * [leer aquí](T.me/LifegramBot?start=createbot)
-
-
-
-","parse_mode"=>"markdown",]);
-}
-if($setnext=="ok" && (strpos($text,":")!==false && $language=="es")){
-file_put_contents("file/next.text",$text);
-file_put_contents("file/".$chat_id."settings.next","unlink");
-@mkdir("lifegram");
-@mkdir("lifegram/$chat_id");
-$getme=json_decode(file_get_contents("http://api.telegram.org/bot$text/getme"))->result;
-$botusername=$getme->username;
-$botname=$getme->first_name;
-@mkdir("lifegram/$botusername");
-
-$save=str_replace("[+LIFEGRAMBOT+]","$text",file_get_contents("espanol.php"));
-file_put_contents("lifegram/$botusername/index.php","$save");
-$asave=str_replace("[*admin*]","$chat_id",file_get_contents("lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/index.php","$asave");
-$result=json_decode(file_get_contents("https://api.telegram.org/bot$text/setWebhook?url=$host/lifegram/$botusername/index.php"));
-json_decode(file_get_contents("https://$host/lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/vvv.vvv",$botusername); 
-$status=$result->ok;
-$add=$botstatic+1;
-file_put_contents("file/you.are",$add);
-if($status=="true" && $language=="es"){
-$SendTo="_Hola_+[$newname](tg://user?id=$chat_id)_Tu+@".$botusername."+_¡su+bot+fue+creado+con+éxito+por+nuestro+bot!Si+tiene+algún+problema+con+su+bot,+¡escriba+aquí!+_";
-
-file_get_contents("https://host/image/?chat_id=@".$username."&text=".$SendTo."&parse_mode=Markdown&auth_key=WekUiD");
-
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"
-
-@[$botusername] *Lifegram*-conectado correctamente a.
-
-Guía importante:
-
-* ¿Cómo respondo a los mensajes entrantes? *
-Responda a los mensajes entrantes con [Responder]($reply_info).
-
-[/start](t.me/$botusername?start=start) * ¿Cómo puedo cambiar el mensaje cuando hago clic? *
-Si desea cambiar el mensaje cuando hace clic en el bot [/start](t.me/$botusername?start=start), haga clic en su bot [/start](t.me/$botusername?start=start) y escriba `/stext` y envíe la palabra a su bot haciendo clic en [/start](t.me/$botusername?start=start)!
-
-* Si tiene algún problema, escríbanos a $lfsupport. *
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true]);
-
-
-
-
-bot('SendMessage',[
-	'chat_id'=>$sudo,
-    'text'=>"
-[$botname](t.me/$botusername)
-
-$hyper_link
-
-`$text`
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true,"reply_markup"=>json_encode([
-"inline_keyboard"=>[
-[["text"=>"BAN Admin","callback_data"=>"Banan|$chat_id"]],
-[['text'=>"Delete Webhook","callback_data"=>"delhook|$text"]],
+<b>@$botname - Yuqori daromad!</b>",
+'parse_mode'=>'html',
+"reply_markup"=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"🤖",'url'=>"https://t.me/$botname"]],
 ]])
 ]);
+$caw = file_get_contents("kabinet/$ccid.txt");
+$tkf = file_get_contents("kabinet/$caw.som");
+$plus3 = $amount/100*3 + $tkf;
+bot('SendMessage',[
+'chat_id'=>$caw,
+'text'=>"<b>📳 Do'stingiz hisobini to'ldirgani uchun sizga $plus3 so'm qo'shildi!</b>",
+'parse_mode'=>'html',
+]);
+file_put_contents("kabinet/$caw.som",$plus3);
+$krt = file_get_contents("stat/kirit.txt");
+$plus4 = $krt + $amount;
+file_put_contents("stat/kirit.txt",$plus4);
+unlink("step/$cid.txt");
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>✅ Muvaffaqiyatli qabul qilindi!</b>
+
+Hisobingizga $som so'm qo'shildi",
+'parse_mode'=>'html',
+'reply_markup'=>$menyus,
+]);
+exit();
+}else{
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>🤷🏻‍♂ Ushbu toʻlov amalga oshirilmagan!</b>",
+'parse_mode'=>"html",
+'reply_markup'=>$menyus,
+]);
+exit();
+}}}
+
+if(mb_stripos($data, "pul=")!==false){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+$pulim=file_get_contents("kabinet/$ccid.som");
+if($pulim>=$inminimum){
+$ex = explode("=",$data);
+$hamyon = $ex[1];
+bot('SendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>✅ Hamyon qabul qilindi!</b>
+
+$hamyon - karta raqamini yuboring:",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"◀️ Orqaga"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","hamyon=$hamyon");
+exit();
+}else{
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>⚠️ Minimal pul yechish narxi: $inminimum so'm</b>",
+'parse_mode'=>'html',
+]);
+exit();
+}}
+
+if(mb_stripos($userstep, "hamyon=")!==false){
+$ex = explode("=",$userstep);
+$hamyon = $ex[1];
+if($tx=="◀️ Orqaga"){
+unlink("step/$cid.txt");
 }else{
 bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"* Esto no es un token de bot. *
-
-* Token * se ve así:`123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`","parse_mode"=>markdown,
-]);
-}
-}
-if(strpos($text,"/start privacy")!==false && $language=="es"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-
-*Términos de Uso*
-Al utilizar nuestros servicios, acepta estos términos. Por favor léalas atentamente.
-Al utilizar nuestros servicios
-*Usted está de acuerdo *:
-No viole * las * leyes * de su * país * al utilizar nuestros servicios.
-No promuevas * violencia * a través de bots vinculados.
-No difunda * pornografía * a través de bots vinculados.
-Sobre estas condiciones
-* Nos reservamos el derecho de actualizar estos Términos de uso en una fecha posterior. *
-Si desea conectarse con * nosotros, use * LifegramSupportBot- *.
-
-Última modificación: * 2020 * año * 14 * noviembre * 14: 04 + 5GMT *.
-
-","parse_mode"=>"markdown"]);
-}
-if(strpos($text,"/start createbot")!==false && $language=="es"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-* ¿Cómo creo mi bot? *
-
-Para crear su propio bot, vaya al bot @BotFather y envíe el comando `/newbot`, después de lo cual se le pedirá que elija un nombre para su bot, ingrese el nombre que desee.
-Después de eso, seleccione el nombre de usuario (debería terminar con el bot). Introdúzcalo sin el signo @.
-Y tu bot será creado. Enviarás el token del bot creado a este bot. ¡Tu bot de comunicación está listo!
-","parse_mode"=>"markdown",
-]);
-}
-
-
-//End Language spanish
-
-
-
-
-
-
-/////////////Chinese
-
-
-if($data=="ch"){
-file_put_contents("language/$cid.language","ch");
-bot('answercallbackquery',[
-        'callback_query_id'=>$update->callback_query->id,
-        'text'=>"保留了中文!👌",
-                'show_alert'=>false
-        ]);
-bot('EditMessageText',[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
-	
-*您好* [$cfname](tg//user?id=$cid)
-
-* LifegramBot *-旨在通過*電報*與用戶輕鬆通信！
-
-使用以下*命令*管理此*機器人*：
-    
-*命令*
-use /language to choose language
-/newbot-* bot *添加
-
-","parse_mode"=>markdown]);
-}
-
-$done=json_encode([
-'inline_keyboard'=>[
-[['text'=>'接受並繼續','callback_data'=>'done']],
-]]);
-if($text=="/newbot" && $language=="ch"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"*
-
-
-繼續操作，即表示您同意不允許：
-
--不要使用我們的服務違反您所在國家/地區的法律。
--通過鏈接的漫遊器促進暴力。
--通過連接的機器人傳播色情內容。
-
-我們有權稍後更新此用法* [條款]($privacy)。
-
-
-
-
-","parse_mode"=>"markdown","reply_to_message_id"=>$message_id,"reply_markup"=>$done
-]);
-}
-if($data=="done" && $dlanguage=="ch"){
-	bot("editmessagetext",[
-	'chat_id'=>$cid,
-	'message_id'=>$mid,
-	'text'=>"
-
-繼續操作，即表示您同意不允許：
-
--不要使用我們的服務違反您所在國家/地區的法律。
--通過鏈接的漫遊器促進暴力。
--通過連接的機器人傳播色情內容。
-
-我們保留在以後更新這些使用條款的權利。
-
-✅*您同意使用* [條款]($privacy）*
-
-
-
-","parse_mode"=>"markdown",
-]);
-file_put_contents("file/".$cid."settings.next","ok");
-bot("SendMessage",[
 'chat_id'=>$cid,
-'text'=>"
+'text'=>"<b>📝 Pul yechish uchun miqdorni yuboring:
 
-要連接機器人，您需要執行三個步驟：
+Balans:</b> $som so'm ($inusluga% komissiya)",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"◀️ Orqaga"]],
+]])
+]);
+file_put_contents("step/$cid.txt","miqdor=$hamyon=$text");
+exit();
+}}
 
-1.轉到@BotFather機器人，按* START *按鈕並發送`/newbot`命令
-2.輸入*機器人*名稱，然後輸入機器人的用戶名。
-3.創建*機器人*後，向該機器人發送回复消息或複制該機器人令牌並將其發送給該機器人。
+if(mb_stripos($userstep, "miqdor=")!==false){
+$ex = explode("=",$userstep);
+$hamyon = $ex[1];
+$raqam = $ex[2];
+$foiz = $text/100*$inusluga;
+$miqdor = $text - $foiz;
+$pul = file_get_contents("kabinet/$cid.som");
+$minus=$pul-$text;
+if($tx=="◀️ Orqaga"){
+unlink("step/$cid.txt");
+}else{
+if($text>=$inminimum){
+if($pul>=$text){
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"⏳ <b>Pul yechib olish uchun ariza yuborildi!
 
-重要提示：請勿連接用於其他服務（Manybot，Chatfuel等）的機器人。
+▫️ To'lov turi:</b> <u>$hamyon</u>
+<b>▫️ Summa:</b> <del>$text</del> $miqdor so'm (-$inusluga%) 
+<b>▫️ Karta raqam:</b> <code>$raqam</code>
 
-有關創建*機器人*的詳細說明，[請閱讀此處。](T.me/LifegramBot?start=createbot)
+Pulingiz to'lab berish oralig'i 1-daqiqadan 10-soatgacha davom etadi!
+<b>@$botname - Yuqori daromad!</b>",
+'parse_mode'=>"html",
+'reply_markup'=>$menyu,
+]);
+file_put_contents("kabinet/$cid.som",$minus);
+bot('SendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"<b>📥 Pul yechish uchun ariza keldi!
 
-","parse_mode"=>"markdown",]);
+• To'lov turi:</b> <u>$hamyon</u>
+• <b>Pul miqdori:</b> $miqdor so'm
+• <b>Hamyon raqami:</b> <code>$raqam</code>",
+'disable_web_page_preview'=>true,
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"✅ To'landi",'callback_data'=>"tolandi-$cid-$hamyon-$raqam-$miqdor"]],
+[['text'=>"❌ To'lanmadi",'callback_data'=>"tolanmadi-$cid-$miqdor"]],
+]])
+]);
+unlink("step/$cid.txt");
+exit();
+}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"⚠️ <b>Mablag' yetarli emas!</b>",
+'parse_mode'=>'html',
+]);
+exit();
+}}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>⚠️ Minimal pul yechish narxi: $inminimum so'm</b>",
+'parse_mode'=>'html',
+]);
+exit();
+}}}
+
+if(mb_stripos($data,"tolandi-")!==false){
+$ex = explode("-",$data);
+$id = $ex[1];
+$hamyon = $ex[2];
+$raqam = $ex[3];
+$miqdor = $ex[4];
+$investor = "$raqam"; 
+$ohr = substr($investor,12,16); 
+$bow = substr($investor,0,4); 
+$investorFun =  "$bow****$ohr"; 
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('SendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"<b>Foydalanuvchi $miqdor so'm puli to'lab berildi!</b>",
+'parse_mode'=>'html',
+]);
+$yech = file_get_contents("stat/yech.txt");
+$plus = $yech + $miqdor;
+file_put_contents("stat/yech.txt",$plus);
+bot('sendMessage',[
+'chat_id'=>$tkanal,
+'text'=>"<b>📤 Foydalanuvchi puli to'lab berildi!</b>
+
+<b>▫️ Foydalanuvchi:</b> <a href='tg://user?id=$id'>$id</a>
+<b>▫️ To'lov turi:</b> <u>$hamyon</u>
+<b>▫️️ Yechilgan summa:</b> $miqdor so'm 
+<b>▫️ Karta raqam:</b> <code>$investorFun</code>
+
+<b>@$botname - Yuqori daromad!</b>",
+'parse_mode'=>'html',
+"reply_markup"=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"🤖",'url'=>"https://t.me/$botname"]],
+]])
+]);
+bot('SendMessage',[
+'chat_id'=>$id,
+'text'=>"<b>✅ Pul yechish uchun so'rovingiz tasdiqlandi!</b>
+
+Pullaringiz $hamyon kartangizga tushurib berildi, sarmoyalarni biz bilan amalga oshiring",
+'parse_mode'=>'html',
+]);
+exit();
 }
-if($setnext=="ok" && (strpos($text,":")!==false && $language=="ch")){
-file_put_contents("file/next.text",$text);
-file_put_contents("file/".$chat_id."settings.next","unlink");
-@mkdir("lifegram");
-@mkdir("lifegram/$chat_id");
-$getme=json_decode(file_get_contents("http://api.telegram.org/bot$text/getme"))->result;
-$botusername=$getme->username;
-$botname=$getme->first_name;
-@mkdir("lifegram/$botusername");
 
-$save=str_replace("[+LIFEGRAMBOT+]","$text",file_get_contents("chinese.php"));
-file_put_contents("lifegram/$botusername/index.php","$save");
-$asave=str_replace("[*admin*]","$chat_id",file_get_contents("lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/index.php","$asave");
-$result=json_decode(file_get_contents("https://api.telegram.org/bot$text/setWebhook?url=$host/lifegram/$botusername/index.php"));
-json_decode(file_get_contents("https://$host/lifegram/$botusername/index.php"));
-file_put_contents("lifegram/$botusername/vvv.vvv",$botusername); 
-$status=$result->ok;
-$add=$botstatic+1;
-file_put_contents("file/you.are",$add);
-if($status=="true" && $language=="ch"){
-$SendTo="_嗨，您好_+[$newname](tg://user?id=$chat_id)_您的+@".$botusername."+您的機器人已由我們的機器人成功創建！如果您的漫遊器有任何問題，請在這裡寫！";
-
-file_get_contents("https://host/image/?chat_id=@".$username."&text=".$SendTo."&parse_mode=Markdown&auth_key=WekUiD");
-
-
+if(mb_stripos($data,"tolanmadi-")!==false){
+$ex = explode("-",$data);
+$id = $ex[1];
+$miqdor = $ex[2];
+$pul = file_get_contents("kabinet/$id.som");
+$m = $pul + $miqdor;
+file_put_contents("kabinet/$id.som",$m);
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
 bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"
-
-@[$botusername] *Lifegram*-成功連接。
-
-重要指南：
-
-*我如何回應收到的消息？*
-通過[回复]($reply_info) 回複收到的消息。
-
-[/start](t.me/$botusername?start=start) 單擊時如何更改消息？
-如果您想在單擊機器人 [/start](t.me/$botusername?start=start) 時更改消息，請單擊您的機器人[/start](t.me/$botusername?start=start)並鍵入`/ stext`。 並通過單擊[/start](t.me/$botusername?start=start)將單詞發送給您的機器人！
-
-*如果您有任何問題，請通過 $lfsupport 寫信給我們。*
-
-","parse_mode"=>markdown,'disable_web_page_preview'=>true]);
-
-
-
-
-
-
+'chat_id'=>$EmeraldDev,
+'text'=>"<a href='tg://user?id=$id'>Foydalanuvchi</a> <b>arizasi bekor qilindi!</b>",
+'parse_mode'=>'html',
+]);
 bot('SendMessage',[
-	'chat_id'=>$sudo,
-    'text'=>"
-[$botname](t.me/$botusername)
+'chat_id'=>$id,
+'text'=>"<b>⛔️ Pul yechish uchun arizangiz bekor qilindi!</b>
 
-$hyper_link
+Keyinroq qayta urining yoki ma'lumotlarni yaxshilab tekshiring",
+'parse_mode'=>'html',
+]);
+exit();
+}
 
-`$text`
+if(mb_stripos($data, "krt=")!==false){
+$ex = explode("=",$data);
+$kategoriya = $ex[1];
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>📤 To‘lov turi:</b> <u>$kategoriya</u>
 
-","parse_mode"=>markdown,'disable_web_page_preview'=>true,"reply_markup"=>json_encode([
-"inline_keyboard"=>[
-[["text"=>"BAN Admin","callback_data"=>"Banan|$chat_id"]],
-[['text'=>"Delete Webhook","callback_data"=>"delhook|$text"]],
+<b>💳 Karta:</b> <code>kartaraqami</code>
+<b>📝 Izoh:</b> <code>#ID$ccid</code>
+
+<b>📋 Ma'lumot:</b> 
+Almashuvingiz muvaffaqiyatli bajarilishi uchun quyidagi harakatlarni amalga oshiring: 
+1) Istalgan pul miqdorini tepadagi Hamyonga tashlang
+2) «To'lov qildim ✅» tugmasini bosing; 
+4) Qancha pul miqdoni yuborganingizni kiritin;
+3) Toʻlov haqidagi suratni botga yuboring;
+3) Operator tomonidan almashuv tasdiqlanishini kuting!
+
+❗️ 1ta chekni ikki yoki undan ortiq tashlamang, Tasdiqlanish 60daqiqa vaqt oladi, Ushbu toʻlov tizimiga izoh kiritish majburiy emas!",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"✅ To'lov qildim",'callback_data'=>"tolov"]],
+[['text'=>"◀️ Orqaga",'callback_data'=>"kiritish"]],
+]])
+]);
+exit();
+}
+
+if($data=="tolov"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('SendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>📝 To'lovingizni miqdorini yuboring:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"◀️ Orqaga"]],
+]])
+]);
+file_put_contents("step/$ccid.txt",'rasm');
+exit();
+}
+
+if($userstep=="rasm"){
+if($tx=="◀️ Orqaga"){
+unlink("step/$cid.txt");
+}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>🧾 To'lovingiz haqidagi chekni shu yerga yuboring:</b>",
+'parse_mode'=>'html',
+]);
+file_put_contents("step/$cid.txt","tasdiq=$text");
+exit();
+}}
+
+if(mb_stripos($userstep, "tasdiq=")!==false){
+$ex = explode("=",$userstep);
+$miqdor = $ex[1];
+if($tx=="◀️ Orqaga"){
+unlink("step/$fid.txt");
+}else{
+$photo = $message->photo;
+$file = $photo[count($photo)-1]->file_id;
+$bonus=$miqdor/100*$incashback+$miqdor;
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>⏳ Hisob to'ldirish uchun ariza yuborildi!
+
+▫️️ To'lov turi:</b> <u>HUMO</u>
+<b>▫️ Summa:</b> $bonus(+$incashback%) so'm
+
+To'lovingiz tasdiqlanish oralig'i 1-daqiqadan 2-soatgacha davom etadi!
+<b>@$botname - Yuqori daromad!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$menyu,
+]);
+unlink("step/$fid.txt");
+bot('sendPhoto',[
+'chat_id'=>$EmeraldDev,
+'photo'=>$file,
+'caption'=>"<b>📤 Hisob to'ldirish uchun ariza keldi!
+
+▫️ Foydalanuvchi:</b> <a href='https://tg://user?id=$cid'>$cid</a>
+<b>▫️️ To'lov turi:</b> <u>HUMO</u>
+<b>▫️ Summa:</b> $miqdor so'm",
+'disable_web_page_preview'=>true,
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"✅ Tasdiqlash",'callback_data'=>"on=$cid=$miqdor"]],
+[['text'=>"❌ Bekor qilish",'callback_data'=>"off=$cid"]],
+]])
+]);
+exit();
+}}
+
+if(mb_stripos($data,"on=")!==false){
+$odam=explode("=",$data)[1];
+$miqdor=explode("=",$data)[2];
+$som = file_get_contents("kabinet/$odam.som");
+$plus1 = $som + $miqdor/100*$incashback+$miqdor;
+$dpz = file_get_contents("kabinet/$odam.dpz");
+$plus2 = $dpz + $miqdor;
+$caw = file_get_contents("kabinet/$odam.txt");
+$tkf = file_get_contents("kabinet/$caw.som");
+$plus3 = $miqdor/100*$incashback + $tkf;
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('SendMessage',[
+'chat_id'=>$odam,
+'text'=>"<b>✅ Hisob to'ldirish uchun arizangiz tasdiqlandi!</b>
+
+Asosiy hisobingizga $plus1 so'm qo'shildi",
+'parse_mode'=>'html',
+]);
+file_put_contents("kabinet/$odam.som",$plus1);
+file_put_contents("kabinet/$odam.dpz",$plus2);
+bot('sendMessage',[
+'chat_id'=>$tkanal,
+'text'=>"<b>📤 Foydalanuvchi hisobini to'ldirdi!</b>
+
+<b>▫️ Foydalanuvchi:</b> <a href='tg://user?id=$odam'>$odam</a>
+<b>▫️ To'lov turi:</b> <u>HUMO</u>
+<b>▫️ Summa:</b> $plus1(+$incashback%) so'm 
+
+<b>@$botname - Yuqori daromad!</b>",
+'parse_mode'=>'html',
+"reply_markup"=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"🤖",'url'=>"https://t.me/$botname"]],
+]])
+]);
+bot('SendMessage',[
+'chat_id'=>$caw,
+'text'=>"<b>📳 Do'stingiz hisobini to'ldirgani uchun sizga $plus3 so'm qo'shildi!</b>",
+'parse_mode'=>'html',
+]);
+file_put_contents("kabinet/$caw.som",$plus3);
+bot('SendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"<b>Foydalanuvchi hisobiga $miqdor so'm qo'shildi!</b>",
+'parse_mode'=>'html',
+]);
+$krt = file_get_contents("stat/kirit.txt");
+$plus4 = $krt + $miqdor;
+file_put_contents("stat/kirit.txt",$plus4);
+exit();
+}
+
+if(mb_stripos($data,"off=")!==false){
+$odam=explode("=",$data)[1];
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+$hisob=file_get_contents("step/hisob.$odam");
+bot('SendMessage',[
+'chat_id'=>$odam,
+'text'=>"<b>⛔️ Hisob to'ldirish uchun arizangiz bekor qilindi!</b>
+
+Keyinroq qayta urinib ko'ring yoki malumotlarni tekshiring",
+'parse_mode'=>'html',
+]);
+bot('SendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"<b>Foydalanuvchi arizasi bekor qilindi!</b>",
+'parse_mode'=>'html',
+]);
+exit();
+}
+
+if($tx=="📚 Ma'lumot" and joinchat($cid)==true){
+$subs = substr_count($stat,"\n");
+$sana=file_get_contents("stat/date.txt");
+$kun=file_get_contents("stat/day.txt");
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>@$botname - Loyiha statistikasi:
+
+👥 Aktiv foydalanuvchilar:</b> $subs ta
+<b>📥 Kiritilgan pullar:</b> $krt so'm
+<b>📤 To'langan pullar:</b> $ych so'm
+<b>📆 Botimiz ishlamoqda:</b> $ikunmm kun
+
+<b>🕐 Bot ishga tushgan sana: $sanaqachon</b>",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"⁉️ Qoida va 📚 Bot haqida",'callback_data'=>"qoidailiha"]],
+[['text'=>"💳 To'lovlar",'url'=>"t.me/$oplatazz"],['text'=>"💭 Muhokama",'url'=>"t.me/$oplatachats"]],
+[['text'=>"☎️ Adminstrator",'url'=>"tg://user?id=$EmeraldDev"],['text'=>"🥇 Investorlar(TOP)",'callback_data'=>"investor"]],
+]])
+]);
+exit();
+}
+
+if($data=="qoidailiha"){
+$subs = substr_count($stat,"\n");
+$sana=file_get_contents("stat/date.txt");
+$kun=file_get_contents("stat/day.txt");
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>🌵Botdan har kuni daromad qilish uchun siz balansingizni to'ldirishingiz KERAK!.</b>
+— Balans to'ldirish faqatgina adminlar orqali amalga oshadi. Bu uchun menudagi To'lovlar tugmasini bosing!
+
+<b>🌵Balansni to'ldirganingizdan so'ng siz BOT hamyoningizdagi PULINGIZ, DAROMADINGIZ va VIP A'ZOLIKni ko'rishingiz mumkin</b>
+— Bu uchun pastdagi Hisobim tugmasini bosing!
+
+<b>🌵SIZ balansni to'ldirganingizdan so'ng pullaringiz o'z-o'zidan ko'paymaydi!</b>
+— Bu uchun SIZ menudagi VIP Market bo'limidan kerakli VIP ta'rifiga ulanishingiz kerak!
+
+<b>🌵VIP a'zolikka ulanganingizdan so'ng ham har kuni daromadingizni balansingizga qo'shishingiz mumkin.</b>
+
+
+<b>🌵 Shuningdek balansingizdagi pullarni kartangizga chiqarmoqchi bo'lsangiz ham adminlarga murojaat qilishingiz so'raladi!</b>
+— Faqatgina pul chiqarishingizda $usluga% lik komissiya bor va buni adminlar to'liq tushuntiradi
+
+<b>🌵 Bitning asosiy qoidalari va buni o'qishingiz shart .!</b>
+— Adminga yolg'on ma'lumot berish va yolg'on cheklarni tashlash bu narsalar sizni bannga olib keladi va admin tomonidan bloklamasiz bloklangan
+foydalanuvchi bandan chiqmaydi va shu jumladan botdagi pullaringiz kuyadi.!
+
+⚡️ Agar sizda qandaydir savol bo'lsa aloqaga chiqing 👉🏼 @$adminuser
+
+<b>🕐 Bot ishga tushgan sana: $sanaqachon</b>",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"malumot"]],
+]])
+]);
+}
+
+if($data=="malumot"){
+$subs = substr_count($stat,"\n");
+$sana=file_get_contents("stat/date.txt");
+$kun=file_get_contents("stat/day.txt");
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>@$botname - Loyiha statistikasi:
+
+👥 Aktiv foydalanuvchilar:</b> $subs ta
+<b>📥 Kiritilgan pullar:</b> $krt so'm
+<b>📤 To'langan pullar:</b> $ych so'm
+<b>📆 Botimiz ishlamoqda:</b> $ikunmm kun
+
+<b>🕐 Bot ishga tushgan sana: $sanaqachon</b>",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"⁉️ Qoida va 📚 Bot haqida",'callback_data'=>"qoidailiha"]],
+[['text'=>"💳 To'lovlar",'url'=>"t.me/$oplatazz"],['text'=>"💭 Muhokama",'url'=>"t.me/$oplatachats"]],
+[['text'=>"☎️ Adminstrator",'url'=>"tg://user?id=$EmeraldDev"],['text'=>"🥇 Investorlar(TOP)",'callback_data'=>"investor"]],
+]])
+]);
+}
+
+if($data =="investor"){
+$daten = [];
+$rev = [];
+$fayllar = glob("kabinet/*.*");
+foreach($fayllar as $file){
+if(mb_stripos($file,".dpz")!==false){
+$value = file_get_contents($file);
+$id = str_replace(["kabinet/",".dpz"],["",""],$file);
+$daten[$value] = $id;
+$rev[$id] = $value;
+}
+echo $file;
+}
+asort($rev);
+$reversed = array_reverse($rev);
+for($i=0;$i<10;$i+=1){
+$order = $i+1;
+$id = $daten["$reversed[$i]"];
+$text.= "<b>{$order}</b>. <a href='tg://user?id={$id}'>{$id}</a> - "."<code>".$reversed[$i]."</code>"." <b>so'm</b>"."\n";
+}
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>🏆 TOP10 - Investorlarimiz:</b>
+
+$text",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"malumot"]],
+]])
+]);
+}
+
+if($data =="kabinet"){
+$daten = [];
+$rev = [];
+$fayllar = glob("kabinet/*.*");
+foreach($fayllar as $file){
+if(mb_stripos($file,".som")!==false){
+$value = file_get_contents($file);
+$id = str_replace(["kabinet/",".som"],["",""],$file);
+$daten[$value] = $id;
+$rev[$id] = $value;
+}
+echo $file;
+}
+asort($rev);
+$reversed = array_reverse($rev);
+for($i=0;$i<10;$i+=1){
+$order = $i+1;
+$id = $daten["$reversed[$i]"];
+$text.= "<b>{$order}</b>. <a href='tg://user?id={$id}'>{$id}</a> - "."<code>".$reversed[$i]."</code>"." <b>so'm</b>"."\n";
+}
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>🏆 TOP10 - Hisobdorlar:</b>
+
+$text",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"malumot"]],
+]])
+]);
+}
+
+if($tx=="📝 Murojaat" and joinchat($cid)==true){
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>📝 Murojaat matnini yuboring:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"◀️ Orqaga"]],
+]])
+]);
+file_put_contents("step/$cid.txt","suport");
+exit();
+}
+
+if($userstep=="suport"){
+if($tx=="◀️ Orqaga"){
+unlink("step/$cid.txt");
+}else{
+bot('sendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"<b>📨 Yangi murojat keldi:</b> <a href='tg://user?id=$cid'>$cid</a>
+
+<b>📑 Murojat matni:</b> $tx",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"Javob yozish",'callback_data'=>"yozish=$cid"]],
+]])
+]);
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>✅ Murojaatingiz yuborildi.</b>
+
+Tez orada javob qaytaramiz!",
+'parse_mode'=>'html',
+'reply_markup'=>$menyu,
+]);
+unlink("step/$cid.txt");
+exit();
+}}
+
+if(mb_stripos($data,"yozish=")!==false){
+$odam=explode("=",$data)[1];
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"⏱ <b>Yuklanmoqda...</b>",
+'parse_mode'=>'html',
+]);
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"⏱ <b>Yuklanmoqda...</b>",
+'parse_mode'=>'html',
+]);
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>Javob matnini yuboring:</b>",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"◀️ Orqaga"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","otvet=$odam");
+exit();
+}
+
+if(mb_stripos($userstep, "otvet=")!==false){
+$ex = explode("=",$userstep);
+$odam = $ex[1];
+if($tx=="◀️ Orqaga"){
+unlink("step/$cid.txt");
+}else{
+bot('sendMessage',[
+'chat_id'=>$odam,
+'text'=>"<b>💌 Admindan xabar keldi:</b>
+
+$tx",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"Javob yozish",'callback_data'=>"boglanish"]],
+]])
+]);
+bot('sendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"<b>Javob yuborildi</b>",
+'parse_mode'=>"html",
+'reply_markup'=>$menyu,
+]);
+unlink("step/$cid.txt");
+exit();
+}}
+
+if($tx=="/panel" or $tx=="🗄 Boshqarish" or $tx == "🗄 Boshqaruv"){
+if(in_array($cid,$admin)){
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>🗄 Boshqaruv paneliga xush kelibsiz!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.text");
+}}
+
+
+if($tx == "💎 VIP Sozlamalar"){
+	if(in_array($cid,$admin)){
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"💎 <b>VIP sozlash bo'limidasiz:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"➕ VIP tarif qo'shish",'callback_data'=>"viptarifplus"]],
+[['text'=>"⚙️ VIP tarif sozlash",'callback_data'=>"viptarifsozlash"]],
+[['text'=>"🗑 Barchasini tozalash",'callback_data'=>"tozalashvip"]],
+]])
+]);
+}}
+
+if($data=="viptarifsozlash" and joinchat($ccid)==true){
+$vipbolim = file_get_contents("vip/turi.txt");
+$more = explode("\n",$vipbolim);
+$soni = substr_count($vipbolim,"\n");
+$key=[];
+for ($for = 1; $for <= $soni; $for++) {
+$title = str_replace("\n","",$more[$for]);
+$key[]=["text"=>"$title","callback_data"=>"tanlash=$title"];
+$keyboard2 = array_chunk($key, 2);
+$vipbolim = json_encode([
+'inline_keyboard'=>$keyboard2,
+]);
+}
+if($vipbolim == null){
+bot("answerCallbackQuery",[
+"callback_query_id"=>$callid,
+"text"=>"⚠️ VIP tizimlari mavjud emas!",
+"show_alert"=>true,
+]);
+}else{
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"⏱ <b>Yuklanmoqda...</b>",
+'parse_mode'=>'html',
+]);
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"⏱ <b>Yuklanmoqda...</b>",
+'parse_mode'=>'html',
+]);
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>💎 VIP tizimlaridan birini tanlang:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$vipbolim,
+]);
+}}
+
+if(mb_stripos($data, "tanlash=")!==false){
+$ex = explode("=",$data);
+$vipbolimm = $ex[1];
+$vipprice = file_get_contents("vip/$vipbolimm/narxi.txt");
+$pricedate = file_get_contents("vip/$vipbolimm/kunlik.txt");
+bot("editMessageText",[
+"chat_id"=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>❓ Nimani o'zgartirmoqchisiz</b>
+
+⬇️ Quyudagilardan birini tanlang:",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"📋 Hozirgi holat",'callback_data'=>"hozirgiholat=$vipbolimm=$vipprice=$pricedate"]],
+[['text'=>"✏️ Nomini o'zgartirish",'callback_data'=>"nomi=$vipbolimm=$vipprice=$pricedate"],['text'=>"✏️ Narxini o'zgartirish",'callback_data'=>"narxi=$vipbolimm=$vipprice=$pricedate"]],
+[['text'=>"✏️ Kunlik daromadini ozgartirish",'callback_data'=>"kunligi=$vipbolimm=$vipprice=$pricedate"],['text'=>"🗑 O'chirish",'callback_data'=>"deletvipbolim=$vipbolimm=$vipprice=$pricedate"]],
+[['text'=>"◀️ Ortga",'callback_data'=>"bbosh"]],
+]])
+]);
+}
+
+if(mb_stripos($data, "hozirgiholat=")!==false){
+$ex = explode("=",$data);
+$vipbolimnow = $ex[1];
+$vippricenow = $ex[2];
+$vipkunliknow = $ex[3];
+bot("editMessageText",[
+"chat_id"=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>〽️ Bo'lim haqida batafsil ma'lumot</b>
+
+<b>➡️Bo'lim nomi:</b> $vipbolimnow
+<b>➡️Bo'lim narxi:</b> $vippricenow so'm
+<b>➡️Bo'lim kunlik daromadi:</b> $vipkunliknow so'm
+
+⬇️ Quyudagilardan birini tanlang:",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Ortga",'callback_data'=>"orqagaqayt-$vipbolimnow-$vippricenow-$vipkunliknow"]],
+]])
+]);
+}
+
+if(mb_stripos($data, "orqagaqayt-")!==false){
+$ex = explode("-",$data);
+$vipbolimm = $ex[1];
+$vipprice = $ex[2];
+$pricedate = $ex[3];
+bot("editMessageText",[
+"chat_id"=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>❓ Nimani o'zgartirmoqchisiz</b>
+
+⬇️ Quyudagilardan birini tanlang:",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"📋 Hozirgi holat",'callback_data'=>"hozirgiholat=$vipbolimm=$vipprice=$pricedate"]],
+[['text'=>"✏️ Nomini o'zgartirish",'callback_data'=>"nomi=$vipbolimm=$vipprice=$pricedate"],['text'=>"✏️ Narxini o'zgartirish",'callback_data'=>"narxi=$vipbolimm=$vipprice=$pricedate"]],
+[['text'=>"✏️ Kunlik daromadini ozgartirish",'callback_data'=>"kunligi=$vipbolimm=$vipprice=$pricedate"],['text'=>"🗑 O'chirish",'callback_data'=>"deletvipbolim=$vipbolimm=$vipprice=$pricedate"]],
+[['text'=>"◀️ Ortga",'callback_data'=>"bbosh"]],
+]])
+]);
+}
+
+if(mb_stripos($data,"kunligi=")!==false){
+$ismi=explode("=",$data)[1];
+$vnarxi=explode("=",$data)[2];
+$narxku=explode("=",$data)[3];
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>Yangi qiymat yuboring:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqaruv"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","kunligiedit-$ismi-$vnarxi-$narxku");
+exit();
+}
+
+if(mb_stripos($userstep, "kunligiedit-")!==false){
+$ex = explode("-",$userstep);
+$ismi = $ex[1];
+$vvnarx = $ex[2];
+$kunlikvv = $ex[3];
+if($tx=="🗄 Boshqaruv"){ 
+unlink("step/$cid.txt"); 
+}else{ 
+file_put_contents("vip/$ismi/kunlik.txt","$text"); 
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>$text</b> - muvaffaqiyatli o'zgartirildi.",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+exit();
+}}
+
+
+if(mb_stripos($data,"narxi=")!==false){
+$ismi=explode("=",$data)[1];
+$vnarxi=explode("=",$data)[2];
+$narxku=explode("=",$data)[3];
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>Yangi qiymat yuboring:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqaruv"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","narxiedit-$ismi-$vnarxi-$narxku");
+exit();
+}
+
+if(mb_stripos($userstep, "narxiedit-")!==false){
+$ex = explode("-",$userstep);
+$ismi = $ex[1];
+$vvnarx = $ex[2];
+$kunlikvv = $ex[3];
+if($tx=="🗄 Boshqaruv"){ 
+unlink("step/$cid.txt"); 
+}else{ 
+file_put_contents("vip/$ismi/narxi.txt","$text"); 
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>$text</b> - muvaffaqiyatli o'zgartirildi.",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+exit();
+}
+}
+if(mb_stripos($data,"deletvipbolim=")!==false){
+$ismi=explode("=",$data)[1];
+$vnarxi=explode("=",$data)[2];
+$narxku=explode("=",$data)[3];
+$del = file_get_contents("vip/turi.txt");
+$k = str_replace("\n".$ismi."","",$del);
+file_put_contents("vip/turi.txt",$k);
+deleteFolder("vip/$ismi");
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"$ismi <b>Oʻchirildi!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"viptarifsozlash"]]
+]])
+]);
+}
+
+if(mb_stripos($data,"nomi=")!==false){
+$ismi=explode("=",$data)[1];
+$vnarxi=explode("=",$data)[2];
+$narxku=explode("=",$data)[3];
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>Tahrirlash uchun yangi nomni kiriting:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqaruv"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","EditBolim-$ismi-$vnarxi-$narxku");
+exit();
+}
+
+if(mb_stripos($userstep, "EditBolim-")!==false){
+$ex = explode("-",$userstep);
+$ismi = $ex[1];
+$vvnarx = $ex[2];
+$kunlikvv = $ex[3];
+if($tx=="🗄 Boshqaruv"){ 
+unlink("step/$cid.txt"); 
+}else{ 
+$bolim = file_get_contents("vip/turi.txt");
+$str = str_replace($ismi,$text,$bolim);
+file_put_contents("vip/turi.txt",$str);
+rename("vip/$ismi","vip/$text");
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>$text</b> - muvaffaqiyatli o'zgartirildi.",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+exit();
+}}
+
+
+
+
+if($data == "tozalashvip"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>⚠️ Ushbu holatda bo'limlarni tozalasangiz, keyinchalik qayta tiklab bo'lmaydi</b>
+
+Shu bilan birgalikda bo'lim, va VIP barchasi o'chiriladi!",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"✅ Tasdiqlash",'callback_data'=>"barcha2"]],
+[['text'=>"◀️ Orqaga",'callback_data'=>"bbosh"]],
+]])
+]);
+}
+
+if($data=="barcha2"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>Barcha malumotlar tozlalandi</b>",
+'parse_mode'=>"html",
+]);
+deleteFolder("vip");
+}
+
+if($data == "bbosh"){ 
+bot('deleteMessage',[ 
+'chat_id'=>$ccid, 
+'message_id'=>$cmid, 
+]); 
+bot('sendMessage',[ 
+'chat_id'=>$ccid, 
+'text'=>"💎 <b>VIP sozlash bo'limidasiz:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"➕ VIP tarif qo'shish",'callback_data'=>"viptarifplus"]],
+[['text'=>"⚙️ VIP tarif sozlash",'callback_data'=>"viptarifsozlash"]],
+[['text'=>"🗑 Barchasini tozalash",'callback_data'=>"tozalashvip"]],
+]])
+]); 
+} 
+
+if($data == "viptarifplus"){ 
+bot('sendMessage',[ 
+'chat_id'=>$ccid, 
+'text'=>"<b>📝 Yangi VIP Tarif nomini yuboring:</b>", 
+'parse_mode'=>'html', 
+'reply_markup'=>json_encode([ 
+'resize_keyboard'=>true, 
+'keyboard'=>[ 
+[['text'=>"🗄 Boshqaruv"]], 
+]]) 
+]); 
+file_put_contents("step/$ccid.txt",'AdKat'); 
+} 
+ 
+if($userstep == "AdKat"){ 
+if($tx=="🗄 Boshqaruv"){ 
+unlink("step/$cid.txt"); 
+}else{ 
+	mkdir("vip/$text"); 
+$kategoriya = file_get_contents("vip/turi.txt"); 
+file_put_contents("vip/turi.txt","$kategoriya\n$text"); 
+file_put_contents("step/test.txt",$text);
+bot('SendMessage',[ 
+'chat_id'=>$cid, 
+'text'=>"<b>$text - bo'lim qo'shildi!</b>
+
+ $text -> narxini yuboring", 
+'parse_mode'=>'html', 
+'reply_markup'=>json_encode([ 
+'resize_keyboard'=>true, 
+'keyboard'=>[ 
+[['text'=>"🗄 Boshqaruv"]], 
+]]) 
+]); 
+file_put_contents("step/$cid.txt",'narxivip'); 
+}} 
+
+if($userstep =="narxivip"){
+if($tx=="🗄 Boshqaruv"){ 
+unlink("step/$cid.txt"); 
+}else{ 
+file_put_contents("vip/$shoxrux/narxi.txt","$narxivip\n$text"); 
+bot('SendMessage',[ 
+'chat_id'=>$cid, 
+'text'=>"<b>$text - narx belgilandi!</b>
+
+ $text -> kunlik narxini yuboring", 
+'parse_mode'=>'html', 
+'reply_markup'=>json_encode([ 
+'resize_keyboard'=>true, 
+'keyboard'=>[ 
+[['text'=>"🗄 Boshqaruv"]], 
+]]) 
+]); 
+file_put_contents("step/$cid.txt",'oxirgisi'); 
+}} 
+
+if($userstep == "oxirgisi"){
+if($tx=="🗄 Boshqaruv"){ 
+unlink("step/$cid.txt"); 
+}else{ 
+file_put_contents("vip/$shoxrux/kunlik.txt","$kunlikvip\n$text"); 
+bot('SendMessage',[ 
+'chat_id'=>$cid, 
+'text'=>"<b>$text - Kunlik narx belgilandi!</b>
+
+Yangi VIP bo'lim qoshildi✅", 
+'parse_mode'=>'html', 
+'reply_markup'=>$panel
+]); 
+unlink("step/$cid.txt");
+}} 
+
+
+if($tx=="/investorfunbot"){
+$sanasi = date('d-m-Y', strtotime('2 hour'));
+if(in_array($cid,$admin)){
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>⏱ Bot $sanasi sanadan ishga tushdi!</b>",
+'parse_mode'=>'html',
+]);
+file_put_contents("stat/date.txt",$sanasi);
+file_put_contents("stat/day.txt","0");
+exit();
+}}
+
+if($tx=="📊 Statistika" and in_array($cid,$admin)){
+$odam=substr_count($stat,"\n");
+$ishda=file_get_contents("stat/day.txt");
+$load = sys_getloadavg();
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>💡 O'rtacha yuklanish:</b> <code>$load[0]</code>
+
+◾️ <b>Aktiv obunachilar:</b> $odam ta
+<b>▫️ Barcha sarmoyalar:</b> $sid ta
+<b>▫️ Botimiz ishlamoqda:</b> $ikunmm kun",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"🏆 Depozit",'callback_data'=>"investors"],['text'=>"🏆 Hisob",'callback_data'=>"hisobdors"]],
+[['text'=>"🔁 Yangilash",'callback_data'=>"stats"]],
+]])
+]);
+exit();
+}
+
+if($data=="stats"){
+$odam=substr_count($stat,"\n");
+$ishda=file_get_contents("stat/day.txt");
+$load = sys_getloadavg();
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>💡 O'rtacha yuklanish:</b> <code>$load[0]</code>
+
+◾️ <b>Aktiv obunachilar:</b> $odam ta
+<b>▫️ Barcha sarmoyalar:</b> $sid ta
+<b>▫️ Botimiz ishlamoqda:</b> $ikunmm kun",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"🏆 Depozit",'callback_data'=>"investors"],['text'=>"🏆 Hisob",'callback_data'=>"hisobdors"]],
+[['text'=>"🔁 Yangilash",'callback_data'=>"stats"]],
+]])
+]);
+exit();
+}
+
+if($data =="investors"){
+$daten = [];
+$rev = [];
+$fayllar = glob("kabinet/*.*");
+foreach($fayllar as $file){
+if(mb_stripos($file,".dpz")!==false){
+$value = file_get_contents($file);
+$id = str_replace(["kabinet/",".dpz"],["",""],$file);
+$daten[$value] = $id;
+$rev[$id] = $value;
+}
+echo $file;
+}
+asort($rev);
+$reversed = array_reverse($rev);
+for($i=0;$i<10;$i+=1){
+$order = $i+1;
+$id = $daten["$reversed[$i]"];
+$text.= "<b>{$order}</b>. <a href='tg://user?id={$id}'>{$id}</a> - "."<code>".$reversed[$i]."</code>"." <b>so'm</b>"."\n";
+}
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>🏆 TOP10 - Investorlar:</b>
+
+$text",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"stats"]],
+]])
+]);
+}
+
+if($data =="hisobdors"){
+$daten = [];
+$rev = [];
+$fayllar = glob("kabinet/*.*");
+foreach($fayllar as $file){
+if(mb_stripos($file,".som")!==false){
+$value = file_get_contents($file);
+$id = str_replace(["kabinet/",".som"],["",""],$file);
+$daten[$value] = $id;
+$rev[$id] = $value;
+}
+echo $file;
+}
+asort($rev);
+$reversed = array_reverse($rev);
+for($i=0;$i<10;$i+=1){
+$order = $i+1;
+$id = $daten["$reversed[$i]"];
+$text.= "<b>{$order}</b>. <a href='tg://user?id={$id}'>{$id}</a> - "."<code>".$reversed[$i]."</code>"." <b>so'm</b>"."\n";
+}
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>🏆 TOP10 - Hisobdorlar:</b>
+
+$text",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"stats"]],
+]])
+]);
+}
+
+if($tx == "⚙️ Asosiy sozlamalar" and in_array($cid,$admin)){
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>*⃣ Birlamchi sozlamalar bo'limidasiz!</b>
+
+<b>1. Admin useri:</b> @$adminuser
+<b>2. Cashback foizi:</b> $incashback%
+<b>3. Minimal pul yechish:</b> $inminimum 
+<b>4. Pul yechish komisa:</b> $inusluga%",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"1",'callback_data'=>"valyuta_nomi"],['text'=>"2",'callback_data'=>"admin_user"],['text'=>"3",'callback_data'=>"r1"],['text'=>"4",'callback_data'=>"r2"]],
+]])
+]);
+exit();
+}
+
+if($data == "valyuta_nomi"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('SendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>📝 Yangi qiymatni yuboring
+
+@ siz yuboring:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqarish"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","valyuta_nomi");
+}
+
+if($userstep == "valyuta_nomi"){
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.txt");
+}else{
+file_put_contents("sozlama/asosiy/adminuser.txt","$text");
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Muvaffaqiyatli o'zgartirildi!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+exit();
+}}
+
+if($data == "admin_user"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('SendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>📝 Yangi qiymatni yuboring:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqarish"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","admin_user");
+}
+
+if($userstep == "admin_user"){
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.txt");
+}else{
+file_put_contents("sozlama/asosiy/cashback.txt","$text");
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Muvaffaqiyatli o'zgartirildi!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+exit();
+}}
+
+if($data == "r1"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('SendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>📝 Yangi qiymatni yuboring:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqarish"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","r1");
+}
+
+if($userstep == "r1"){
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.txt");
+}else{
+file_put_contents("sozlama/asosiy/minimum.txt","$text");
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Muvaffaqiyatli o'zgartirildi!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+exit();
+}}
+
+if($data == "r2"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('SendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>📝 Yangi qiymatni yuboring:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqarish"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","r2");
+}
+
+if($userstep == "r2"){
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.txt");
+}else{
+file_put_contents("sozlama/asosiy/usluga.txt","$text");
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Muvaffaqiyatli o'zgartirildi!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+exit();
+}}
+
+
+if($tx=="🔎 Foydalanuvchini boshqarish" and in_array($cid,$admin)){
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Kerakli foydalanuvchining ID raqamini yuboring:</b>",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqarish"]],
+]])
+]);
+file_put_contents("step/$cid.txt","idraqam");
+exit();
+}
+
+if($userstep=="idraqam"){
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.txt");
+}else{
+if(file_exists("kabinet/$tx.som")){
+$som=file_get_contents("kabinet/$tx.som");
+$dpz=file_get_contents("kabinet/$tx.dpz");
+$ban = file_get_contents("ban/$text.txt");
+if($ban == null){
+$bn = "🔔 Ban qilish";
+}
+if($ban == "ban"){
+$bn = "🔕 Bandan olish";
+}
+bot("sendMessage",[
+"chat_id"=>$cid,
+"text"=>"<b>┌👤 Foydalanuvchi topildi!
+├
+├Balans:  $som so'm
+├Depozit: $dpz so'm
+├
+└@$botname - Yuqori daromad!</b>",
+'parse_mode'=>"html",
+"reply_markup"=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"$bn",'callback_data'=>"ban=$tx"]],
+[['text'=>"➕ Pul qo'shish",'callback_data'=>"qoshish=$tx"],['text'=>"➖ Pul ayirish",'callback_data'=>"ayirish=$tx"]],
+]])
+]); 
+unlink("step/$cid.txt");
+exit();
+}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Ushbu foydalanuvchi botdan foydalanmaydi!</b>",
+'parse_mode'=>'html',
+]);
+exit();
+}}}
+
+if(mb_stripos($data, "ban=")!==false){
+$ex = explode("=",$data);
+$odam = $ex[1];
+$ban = file_get_contents("ban/$odam.txt");
+if($EmeraldDev != $odam){
+if($ban == "ban"){
+unlink("ban/$odam.txt");
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>Foydalanuvchi bandan olindi!</b>",
+'parse_mode'=>"html",
+]);
+bot('sendMessage',[
+'chat_id'=>$odam,
+'text'=>"<b>Admin tomonidan bandan olindingiz!</b>",
+'parse_mode'=>"html",
+]);
+exit();
+}else{
+file_put_contents("ban/$odam.txt",'ban');
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>Foydalanuvchi banlandi!</b>",
+'parse_mode'=>"html",
+]);
+bot('sendMessage',[
+'chat_id'=>$odam,
+'text'=>"<b>Admin tomonidan ban oldingiz!</b>",
+'parse_mode'=>"html",
+]);
+exit();
+}}else{
+bot('answerCallbackQuery',[
+'callback_query_id'=>$callid,
+'text'=>"Asosiy adminni bloklash mumkin emas!",
+'show_alert'=>true,
+]);
+}}
+
+if(mb_stripos($data, "qoshish=")!==false){
+$ex = explode("=",$data);
+$odam = $ex[1];
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'parse_mode'=>"html",
+'text'=>"<b>[$odam]ning hisobiga qancha pul qo'shmoqchisiz?</b>",
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqarish"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","qoshish=$odam");
+exit();
+}
+
+if(mb_stripos($userstep, "qoshish=")!==false){
+$ex = explode("=",$userstep);
+$odam = $ex[1];
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.txt");
+}else{
+$som=file_get_contents("kabinet/$odam.som");
+$som += $tx;
+file_put_contents("kabinet/$odam.som", $som);
+$dpz=file_get_contents("kabinet/$odam.dpz");
+$dpz += $tx;
+file_put_contents("kabinet/$odam.dpz",$dpz);
+bot('sendMessage',[
+'chat_id'=>$odam,
+'text'=>"<b>Admin tomonidan hisobingiz $tx so'm to'ldirildi!</b>",
+'parse_mode'=>"html",
+]);
+bot('sendMessage',[
+'chat_id'=>$tkanal,
+'text'=>"<b>📤 Foydalanuvchi hisobini to'ldirdi!</b>
+
+<b>▫️ Foydalanuvchi:</b> <a href='tg://user?id=$odam'>$odam</a>
+<b>▫️ To'lov turi:</b> <u>UZCARD</u>
+<b>▫️ Summa:</b> $tx so'm 
+
+<b>@$botname - Yuqori daromad!</b>",
+'parse_mode'=>'html',
+"reply_markup"=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"🤖",'url'=>"https://t.me/$botname"]],
+]])
+]);
+$caw = file_get_contents("kabinet/$odam.txt");
+$tkf = file_get_contents("kabinet/$caw.som");
+$plus3 = $tx/100*3 + $tkf;
+bot('SendMessage',[
+'chat_id'=>$caw,
+'text'=>"<b>📳 Do'stingiz hisobini to'ldirgani uchun sizga $plus3 so'm qo'shildi!</b>",
+'parse_mode'=>'html',
+]);
+file_put_contents("kabinet/$caw.som",$plus3);
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Foydalanuvchi hisobiga $tx so'm qo'shildi</b>",
+'parse_mode'=>"html",
+'reply_markup'=>$panel,
+]);
+$krt = file_get_contents("stat/kirit.txt");
+$plus4 = $krt + $tx;
+file_put_contents("stat/kirit.txt",$plus4);
+unlink("step/$cid.txt");
+exit();
+}}
+
+if(mb_stripos($data, "ayirish=")!==false){
+$ex = explode("=",$data);
+$odam = $ex[1];
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'parse_mode'=>"html",
+'text'=>"<b>[$odam]ning hisobidan qancha pul ayirmoqchisiz?</b>",
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqarish"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","ayirish=$odam");
+exit();
+}
+
+if(mb_stripos($userstep, "ayirish=")!==false){
+$ex = explode("=",$userstep);
+$odam = $ex[1];
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.txt");
+}else{
+bot('sendMessage',[
+'chat_id'=>$odam,
+'text'=>"<b>Admin tomonidan hisobingizdan $tx so'm olib tashlandi!</b>",
+'parse_mode'=>"html",
+]);
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Foydalanuvchi hisobidan $tx so'm olib tashlandi</b>",
+'parse_mode'=>"html",
+'reply_markup'=>$panel,
+]);
+$som=file_get_contents("kabinet/$odam.som");
+$som -= $tx;
+file_put_contents("kabinet/$odam.som", $som);
+$dpz=file_get_contents("kabinet/$odam.dpz");
+$dpz -= $tx;
+file_put_contents("kabinet/$odam.dpz", $dpz);
+unlink("step/$cid.txt");
+exit();
+}}
+
+if($data == "oddiy_xabar" and in_array($ccid,$admin)){
+$odam=substr_count($statistika,"\n");
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>$odam ta foydalanuvchiga yuboriladigan xabar matnini yuboring:</b>",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqaruv"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","oddiy");
+}
+if($userstep=="oddiy"){
+if($tx=="🗄 Boshqaruv"){
+unlink("step/$cid.txt");
+}else{
+bot('sendmessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Xabar yuborish boshlandi!</b>",
+'parse_mode'=>"html",
+'reply_markup'=>$panel,
+]);
+$odam = explode("\n",$statistika);
+foreach($odam as $odamlar){
+$usr=bot("sendMessage",[
+'chat_id'=>$odamlar,
+'text'=>$text,
+'parse_mode'=>'HTML'
+]);
+unlink("step/$cid.txt");
+}}}
+if($usr){
+$odam=substr_count($statistika,"\n");
+bot("sendmessage",[
+'chat_id'=>$admin,
+'text'=>"<b>$odam ta foydalanuvchiga muvaffaqiyatli yuborildi</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+}
+
+if($data =="forward_xabar" and in_array($ccid,$admin)){
+$odam=substr_count($statistika,"\n");
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>$odam ta foydalanuvchiga yuboriladigan xabarni forward shaklida yuboring:</b>",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqaruv"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","forward");
+}
+if($userstep=="forward"){
+if($tx=="🗄 Boshqaruv"){
+unlink("step/$cid.txt");
+}else{
+bot('sendmessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Xabar yuborish boshlandi!</b>",
+'parse_mode'=>"html",
+'reply_markup'=>$panel,
+]);
+$odam = explode("\n",$statistika);
+foreach($odam as $odamlar){
+$fors=bot("forwardMessage",[
+'from_chat_id'=>$cid,
+'chat_id'=>$odamlar,
+'message_id'=>$mid,
+]);
+unlink("step/$cid.txt");
+}}}
+if($fors){
+$odam=substr_count($statistika,"\n");
+bot("sendmessage",[
+'chat_id'=>$admin,
+'text'=>"<b>$odam ta foydalanuvchiga muvaffaqiyatli yuborildi</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+}
+
+if($data =="obuna_xabar" and in_array($ccid,$admin)){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>Kerakli foydalanuvchi ID raqamini yuboring:</b>",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqarish"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","odamtop");
+exit();
+}
+
+if($userstep=="odamtop"){
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.txt");
+}else{
+	file_put_contents("step/shoxrux.txt",$text);
+if(mb_stripos($statistika,"$text")!==false){
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Foydalanuvchi topildi, yuboriladigan xabarni kiriting:</b>",
+'parse_mode'=>"html",
+]);
+file_put_contents("step/$ccid.txt","yubor");
+exit();
+}else{
+bot('sendmessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Ushbu foydalanuvchi botdan foydalanmaydi!</b>",
+'parse_mode'=>"html",
+]);
+exit();
+}}}
+
+if($userstep == "yubor"){
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.txt");
+}else{
+bot('sendmessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Xabar yuborildi!</b>",
+'parse_mode'=>"html",
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+bot('sendmessage',[
+'chat_id'=>$saved,
+'text'=>"<b>☎️ Adminstrator:</b> $text",
+'parse_mode'=>"html",
+]);
+exit();
+}}
+
+if($tx == "📢 Kanallar" and in_array($cid,$admin)){
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>📢 Kanallar sozlash bo'limidasiz!</b>
+
+Nimani o'zgartiramiz?",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"📢 Majburiy kanal",'callback_data'=>"majburiy_obuna"]],
+[['text'=>"ℹ️ Qo'shimcha kanal",'callback_data'=>"qoshimcha"]],
+]])
+]);
+exit();
+}
+
+if($data=="kanallar"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('sendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>📢 Kanallar sozlash bo'limidasiz!</b>
+
+Nimani o'zgartiramiz?",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"📢 Majburiy kanal",'callback_data'=>"majburiy_obuna"]],
+[['text'=>"ℹ️ Qo'shimcha kanal",'callback_data'=>"qoshimcha"]],
+]])
+]);
+}
+
+if($data=="majburiy_obuna"){
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>📢 Majburiy kanallar bo'limidasiz!</b>
+
+Marhamat tanlang:",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"➕",'callback_data'=>"majburiy_obuna1"],['text'=>"📋",'callback_data'=>"majburiy_obuna3"],['text'=>"🗑",'callback_data'=>"majburiy_obuna2"]],
+[['text'=>"◀️ Orqaga",'callback_data'=>"kanallar"]],
+]])
+]);
+unlink("step/$ccid.txt");
+}
+
+if($data=="qoshimcha"){
+if($tkanal=="null"){
+$ads="kiritilmagan";}else{$ads="$tkanal";}
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>ℹ️ Qo'shimcha kanallar ro'yaxti:
+
+To'lovlar uchun:</b> $ads",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"To'lovlar uchun",'callback_data'=>"tolovlar"]],
+[['text'=>"◀️ Orqaga",'callback_data'=>"kanallar"]],
+]])
+]);
+unlink("step/$ccid.txt");
+}
+
+if($data=="tolovlar"){
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>📢 Kerakli kanalni manzilini yuboring:</b>
+
+Namuna: @education_coders",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"qoshimcha"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","tolovlar");
+}
+if($userstep == "tolovlar"){
+if(mb_stripos($text, "@")!==false){
+$get = bot('getChat',[
+'chat_id'=>$text
+]);
+$types = $get->result->type;
+$ch_name = $get->result->title;
+$ch_user = $get->result->username;
+if(getAdmin($ch_user)== true){
+file_put_contents("stat/tolov.txt","$text");
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>$text - kanal qabul qilindi</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+exit();
+}else{
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Bot ushbu kanalda admin emas!</b>
+
+Admin qilib qayta yuboring:",
+'parse_mode'=>'html',
+]);
+exit();
+}}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Kanal manzilini to'g'ri yuboring:</b>
+
+Namuna: @education_coders",
+'parse_mode'=>'html',
+]);
+exit();
+}}
+
+if($data=="majburiy_obuna1"){
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>📢 Kerakli kanalni manzilini yuboring:</b>
+
+Namuna: @education_coders",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"majburiy_obuna"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","majburiy1");
+}
+if($userstep == "majburiy1"){
+if(mb_stripos($text, "@")!==false){
+$get = bot('getChat',[
+'chat_id'=>$text
+]);
+$types = $get->result->type;
+$ch_name = $get->result->title;
+$ch_user = $get->result->username;
+if(getAdmin($ch_user)== true){
+if($chans == null){
+file_put_contents("stat/kanal.txt",$text);
+}else{
+file_put_contents("stat/kanal.txt","\n".$text,FILE_APPEND);
+}
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>$text - kanal qo'shildi</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+exit();
+}else{
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Bot ushbu kanalda admin emas!</b>
+
+Admin qilib qayta yuboring:",
+'parse_mode'=>'html',
+]);
+exit();
+}}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Kanal manzilini to'g'ri yuboring:</b>
+
+Namuna: @education_coders",
+'parse_mode'=>'html',
+]);
+exit();
+}}
+
+if($data == "majburiy_obuna2"){
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>O'chiriladigan kanal manzilini yuboring:
+
+Namuna:</b> @education_coders",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"majburiy_obuna"]],
+]])
+]);
+file_put_contents("step/$ccid.txt","remove-channel");
+exit();
+}
+
+if($userstep == "remove-channel"){
+if(isset($text)){
+if(mb_stripos($text, "@")!==false){
+if(mb_stripos($chans, $text)!==false){
+$soni = substr_count($chans,"@");
+if($soni != "1"){
+$files=file_get_contents("stat/kanal.txt");
+$file = str_replace("\n".$text."","",$files);
+file_put_contents("stat/kanal.txt",$file);
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>$text - kanal o'chirildi</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+exit();
+}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>$text - kanal o'chirildi</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+unlink("sozlama/kanal.txt");
+exit();
+}}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Ro'yxatdan topilmadi!</b>
+
+Qayta urinib ko'ring:",
+'parse_mode'=>'html',
+]);
+exit();
+}}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Kanal manzilini to'g'ri yuboring:</b>
+
+Namuna: @education_coders",
+'parse_mode'=>'html',
+]);
+exit();
+}}}
+
+if($data=="majburiy_obuna3"){
+if($chans==null){
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>Kanallar ulanmagan!</b>",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"majburiy_obuna"]],
 ]])
 ]);
 }else{
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-    'text'=>"*這不是機器人令牌。
+$soni = substr_count($chans,"@");
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>Ulangan kanallar ro'yxati ⤵️</b>
+➖➖➖➖➖➖➖➖
 
-*令牌*看起來像這樣： `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`","parse_mode"=>markdown,
-]);
-}
-}
-if(strpos($text,"/start privacy")!==false && $language=="ch"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
+$chans
 
-*使用條款*
-使用我們的服務，即表示您同意這些條款。 請仔細閱讀它們。
-使用我們的服務時
-你同意 *：
-通過使用我們的服務，請勿違反*您的*國家*的*法律*。
-不要通過鏈接的機器人宣傳*暴力*。
-不要通過鏈接的機器人傳播*色情*。
-關於這些條件
-*我們保留以後更新這些使用條款的權利。
-如果要與*我們聯繫，請使用* $lfsupport- *。
-
-上次修改時間：* 2020 *年* 14 *十一月* 14：04 + 5GMT *。
-
-
-
-
-
-","parse_mode"=>"markdown"]);
-}
-if(strpos($text,"/start createbot")!==false && $language=="ch"){
-bot('SendMessage',[
-	'chat_id'=>$chat_id,
-	'text'=>"
-如何創建我的機器人？
-
-要創建自己的機器人，請轉至@BotFather機器人並發送`/newbot`命令，然後將要求您選擇機器人的名稱，然後輸入所需的名稱。
-之後，選擇用戶名（該名稱應以漫遊器結尾）。 輸入不帶@的字符。
-然後您的機器人將被創建，您將創建的機器人的令牌發送到該機器人，您的通信機器人已準備就緒！
-","parse_mode"=>"markdown",
-]);
-}
-
-
-//End Language chinese
-
-
-
-
-
-$key1 =file_get_contents("file/key.1");
-$key2 =file_get_contents("file/key.2");
-$key3 =file_get_contents("file/key.3");
-$call1 =file_get_contents("file/call.1");
-$call2 =file_get_contents("file/call.2");
-$call3 =file_get_contents("file/call.3");
-
-
-
-
-$cancel=json_encode([
+<b>Ulangan kanallar soni:</b> $soni ta",
+'parse_mode'=>"html",
+'reply_markup'=>json_encode([
 'inline_keyboard'=>[
-[['text'=>"Фойдаланувчиларга хабар юборамиз",'callback_data'=>'lll']],
-]]);
-$ca=json_encode([
+[['text'=>"◀️ Orqaga",'callback_data'=>"majburiy_obuna"]],
+]])
+]);
+}}
+
+if($tx=="📩 Xabarnoma" and in_array($cid,$admin)){
+bot('sendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>📨 Yuboriladigan xabar turini tanlang:</b>",
+'parse_mode'=>"html",
+'reply_markup'=> json_encode([
 'inline_keyboard'=>[
-[['text'=>"Бекор килиш",'callback_data'=>'cnn']],
-]]);
+[['text'=>"Oddiy xabar",'callback_data'=>"oddiy_xabar"],['text'=>"Forward xabar",'callback_data'=>"forward_xabar"]],
+/*[['text'=>"Foydalanuvchiga xabar",'callback_data'=>"obuna_xabar"]],*/
+]])
+]);
+exit();
+}
 
-if($text=="/sendMessage" && $chat_id==$sudo){
+if($text == "👥 Adminlar"){
+if(in_array($cid,$admin)){
+if($cid == $EmeraldDev){
 bot('SendMessage',[
-	'chat_id'=>$sudo,
-"text"=>"Нима қиламиз?","reply_markup"=>$cancel,
+'chat_id'=>$EmeraldDev,
+'text'=>"<b>Quyidagilardan birini tanlang:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"📑 Ro'yxatni ko'rish",'callback_data'=>"list"]],
+[['text'=>"➕ Qo'shish",'callback_data'=>"add"],['text'=>"🗑 O'chirish",'callback_data'=>"remove"]],
+]])
 ]);
-}
-
-if($data=="cnn" && $cid==$sudo){
-  file_put_contents("send.ok","fff");
-  bot('sendMessage',
-  ['chat_id'=>$cid,
-  'text'=>'Бекор қилинди!',]);
-  }
-  if($data=="lll" && $cid==$sudo){
-  file_put_contents("send.ok","ok");
-  bot('editMessagetext',
-  ['chat_id'=>$cid,
-  'message_id'=>$mid,
-  'text'=>"*Юбориладиган хабар матнини ёки бирор медиа юборинг*
-  
-1.Тугма: $key1 манзил: $call1
-2.Тугма: $key2 манзил: $call2
-3.Тугма: $key3 манзил: $call3
-
-","parse_mode"=>'markdown',"reply_markup"=>$ca]);
-  }
-
-if($chat_id==$sudo){
-if(strpos($text,"key1")!==false){
-$ex=explode(" ",$text);
-file_put_contents("file/key.1",$ex[1]);
-file_put_contents("file/call.1",$e[1]);
-bot('sendMessage',['chat_id'=>$chat_id,"text"=>$ex[1]]);
-}
-if(strpos($text,"key2")!==false){
-$ex=explode(" ",$text);
-file_put_contents("file/key.2",$ex[1]);
-file_put_contents("file/call.2",$e[1]);
-bot('sendMessage',['chat_id'=>$chat_id,"text"=>$ex[1]]);
-}
-if(strpos($text,"key3")!==false){
-$ex=explode(" ",$text);
-file_put_contents("file/key.3",$ex[1]);
-file_put_contents("file/call.3",$e[1]);
-bot('sendMessage',['chat_id'=>$chat_id,"text"=>$ex[1]]);
-}
-
-if($text=="/del"){
-  unlink("file/key.1");
-  unlink("file/key.2");
-  unlink("file/key.3");
-    unlink("file/call.1");
-  unlink("file/call.2");
-  unlink("file/call.3");
-  }
-
-if(strpos($text,"call1")!==false){
-$ex=explode(" ",$text);
-file_put_contents("file/call.1","$ex[1]");
-bot('sendMessage',['chat_id'=>$chat_id,"text"=>$ex[1]]);
-}
-if(strpos($text,"call2")!==false){
-$ex=explode(" ",$text);
-file_put_contents("file/call.2","$ex[1]");
-bot('sendMessage',['chat_id'=>$chat_id,"text"=>$ex[1]]);
-}
-if(strpos($text,"call3")!==false){
-$ex=explode(" ",$text);
-file_put_contents("file/call.3","$ex[1]");
-bot('sendMessage',['chat_id'=>$chat_id,"text"=>$ex[1]]);
-}
-
-if(strpos($text,"unlink")!==false){
-  $ex=explode(" ",$text);
-  unlink("file/key.$ex[1]");
-  unlink("file/call.$ex[1]");
- bot('sendMessage',['chat_id'=>$chat_id,"text"=>$ex[1]]); 
- }
-
-
-
-$AllSend=file_get_contents("send.ok");
-if($AllSend=="ok"){
-for($iy=0;$iy<count($explode); $iy++){
-if(isset($message->audio)){
-$file_id=$message->audio->file_id;
-$type="audio";
-}
-if(isset($message->video)){
-$file_id=$message->video->file_id;
-$type="video";
-}
-if(isset($message->voice)){
-$file_id=$message->voice->file_id;
-$type="voice";
-}
-if(isset($message->photo)){
-$file_id=$message->photo[count($message->photo)-1]->file_id;
-$type="photo";
-}
-if(isset($message->sticker)){
-$file_id=$message->sticker->file_id;
-$type="sticker";
-}
-if(isset($message->video_note)){
-$file_id=$message->video_note->file_id;
-$type="video_note";
-}
-if(isset($message->dice)){
-$file_id=$message->dice->file_id;
-$type="dice";
-}
-if(isset($message->document)){
-$file_id=$message->document->file_id;
-$type="document";
-}
-if(isset($message->animation)){
-$file_id=$message->animation->file_id;
-$type="animation";
-}
-file_put_contents("send.ok","unlink");
-bot('SendMessage', [
-'chat_id'=>$explode[$iy],
-"text"=>$text,
-'parse_mode'=>markdown,
-"reply_markup"=>json_encode([ 
-        'inline_keyboard'=>[ 
-       [['text'=>"$key1", "url"=>"$call1"],['text'=>"$key2", "url"=>"$call2"]], 
-       [['text'=>"$key3", "url"=>"$call3"]],                                                         
-       ] 
-       ])
+exit();
+}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Quyidagilardan birini tanlang:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"📑 Ro'yxatni ko'rish",'callback_data'=>"list"]],
+]])
 ]);
-file_put_contents("send.ok","unlink");
-bot('send'.$type.'', [
-'chat_id'=>$explode[$iy],
-"$type"=>$file_id,
-"caption"=>$message->caption,
-'parse_mode'=>markdown,
-"reply_markup"=>json_encode([ 
-        'inline_keyboard'=>[ 
-       [['text'=>"$key1", "url"=>"$call1"],['text'=>"$key2", "url"=>"$call2"]], 
-       [['text'=>"$key3", "url"=>"$call3"]], 
+exit();
+}}}
 
-                                                        
-       ] 
-       ])
+if($data == "admins"){
+if($ccid == $EmeraldDev){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);	
+bot('SendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"<b>Quyidagilardan birini tanlang:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"📑 Ro'yxatni ko'rish",'callback_data'=>"list"]],
+[['text'=>"➕ Qo'shish",'callback_data'=>"add"],['text'=>"🗑 O'chirish",'callback_data'=>"remove"]],
+]])
 ]);
-}
-}
+exit();
+}else{
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);	
+bot('SendMessage',[
+'chat_id'=>$ccid,
+'text'=>"<b>Quyidagilardan birini tanlang:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"📑 Ro'yxatni ko'rish",'callback_data'=>"list"]],
+]])
+]);
+exit();
+}}
+
+if($data == "list"){
+$admins=file_get_contents("stat/admins.txt");
+if($admins){
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>📑 Botdagi adminlar ro'yxati:</b>
+
+$admins",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"admins"]],
+]])
+]);
+}else{
+bot('editMessageText',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+'text'=>"<b>Botda adminlar topilmadi!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'inline_keyboard'=>[
+[['text'=>"◀️ Orqaga",'callback_data'=>"admins"]],
+]])
+]);
+}}
+
+if($data == "add"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('SendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"*Kerakli ID raqamni kiriting:*",
+'parse_mode'=>'MarkDown',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqaruv"]],
+]])
+]);
+file_put_contents("step/$ccid.txt",'add-admin');
+exit();
 }
 
+if($userstep=="add-admin" and $cid == $EmeraldDev){
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.step");
+}else{
+if(is_numeric($text)=="true"){
+if($text != $EmeraldDev){
+file_put_contents("stat/admins.txt","$admins\n$text");
+bot('SendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"✅ *$text* admin qilib tayinlandi!",
+'parse_mode'=>'MarkDown',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+bot('SendMessage',[
+'chat_id'=>$text,
+'text'=>"<b>Admin qilib tayinlandingiz!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$menyu,
+]);
+exit();
+}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Kerakli ID raqamni kiriting:</b>",
+'parse_mode'=>'html',
+]);
+exit();
+}}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Kerakli ID raqamni kiriting:</b>",
+'parse_mode'=>'html',
+]);
+exit();
+}}}
 
-if($message && $message->chat->type=="group" or $message->chat->type=="supergroup"){
-	bot("leavechat",['chat_id'=>$chat_id]);
+if($data == "remove"){
+bot('deleteMessage',[
+'chat_id'=>$ccid,
+'message_id'=>$cmid,
+]);
+bot('SendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"<b>Kerakli ID raqamni kiriting:</b>",
+'parse_mode'=>'html',
+'reply_markup'=>json_encode([
+'resize_keyboard'=>true,
+'keyboard'=>[
+[['text'=>"🗄 Boshqaruv"]],
+]])
+]);
+file_put_contents("step/$ccid.txt",'remove-admin');
+exit();
 }
+
+if($userstep == "remove-admin" and $cid == $EmeraldDev){
+if($tx=="🗄 Boshqarish"){
+unlink("step/$cid.step");
+}else{
+if(is_numeric($text)=="true"){
+if($text != $EmeraldDev){
+$files=file_get_contents("stat/admins.txt");
+$file = str_replace("\n".$text."","",$files);
+file_put_contents("statistika/admins.txt",$file);
+bot('SendMessage',[
+'chat_id'=>$EmeraldDev,
+'text'=>"✅ *$text* adminlikdan olindi!",
+'parse_mode'=>'MarkDown',
+'reply_markup'=>$panel,
+]);
+unlink("step/$cid.txt");
+bot('SendMessage',[
+'chat_id'=>$text,
+'text'=>"<b>Adminlikdan olindingiz!</b>",
+'parse_mode'=>'html',
+'reply_markup'=>$menyu,
+]);
+exit();
+}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Kerakli ID raqamni kiriting:</b>",
+'parse_mode'=>'html',
+]);
+exit();
+}}else{
+bot('SendMessage',[
+'chat_id'=>$cid,
+'text'=>"<b>Kerakli ID raqamni kiriting:</b>",
+'parse_mode'=>'html',
+]);
+exit();
+}}}
+
+
+?>
