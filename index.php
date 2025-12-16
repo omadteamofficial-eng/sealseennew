@@ -11,10 +11,10 @@ kodda xato kamchilik bot tuzatib olasilar!
 MANBA @UzBuilder Manba Bilan Ol*/
 $administrator = "8125289524";
 $saytmm = "m2708.myxvest.ru/TexKons";
-$UzBuilder = "MaxKonstruktorBot";
-$reknomi = "Hamkor botimiz";
-$botidisi = "6257750945";
-$botkanali = "@MyMaxUz";
+$UzBuilder = "SULTANOVXZBOT";
+$reknomi = "Bizning Korporatsiyamiz";
+$botidisi = "8398800703";
+$botkanali = "@seal_seen";
 
 
 function bot($method,$steps=[]){
