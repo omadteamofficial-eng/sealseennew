@@ -31,6 +31,13 @@ $db->exec("CREATE TABLE IF NOT EXISTS orders (
     status TEXT DEFAULT 'pending'
 )");
 
+$db->exec("CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT, 
+    name TEXT, 
+    price INTEGER
+)");
+
 // Promo-kodlar uchun jadval
 $db->exec("CREATE TABLE IF NOT EXISTS promos (
     code TEXT PRIMARY KEY, 
@@ -111,6 +118,17 @@ if ($chat_id == $adminId && isset($msg->reply_to_message)) {
         $key = json_encode(['keyboard' => [[['text' => "🛍 Xizmatlar"], ['text' => "💵 Hisobim"]], [['text' => "📞 Yordam"]]], 'resize_keyboard' => true]);
         bot('sendMessage', ['chat_id' => $chat_id, 'text' => "🖥️ Asosiy menyudasiz", 'reply_markup' => $key]);
     } 
+
+    if ($text == "/panel" && $chat_id == $adminId) {
+    $key = json_encode([
+        'inline_keyboard' => [
+            [['text' => "➕ Paket qo'shish", 'callback_data' => "add_product"]],
+            [['text' => "💰 Narxlarni tahrirlash", 'callback_data' => "edit_price"]],
+            [['text' => "📣 Hammaga xabar yuborish", 'callback_data' => "send_ads"]],
+        ]
+    ]);
+    bot('sendMessage', ['chat_id' => $adminId, 'text' => "🕹 **Admin boshqaruv paneli:**", 'parse_mode' => 'Markdown', 'reply_markup' => $key]);
+}
         // --- A BO'LAGI (Statistika) ---
 if($text == "/stat" && $chat_id == $adminId){
     $u_count = $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
@@ -183,6 +201,29 @@ elseif($user['step'] == 'send_all' && $chat_id == $adminId){
             'resize_keyboard' => true
         ])
     ]);
+}
+    if ($data == "add_product") {
+    $db->prepare("UPDATE users SET step = 'adm_prod_cat' WHERE chat_id = ?")->execute([$chat_id]);
+    bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Kategoriyani kiriting (masalan: pubg, ff, mlbb):"]);
+}
+        elseif ($user['step'] == 'adm_prod_cat') {
+    $db->prepare("UPDATE users SET step = 'adm_prod_name', temp_data = ? WHERE chat_id = ?")->execute([$text, $chat_id]);
+    bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Paket nomini kiriting (masalan: 60 UC):"]);
+}
+elseif ($user['step'] == 'adm_prod_name') {
+    $old_data = $user['temp_data']; // Kategoriya
+    $db->prepare("UPDATE users SET step = 'adm_prod_price', temp_data = ? WHERE chat_id = ?")->execute([$old_data . "|" . $text, $chat_id]);
+    bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Narxini kiriting (faqat raqam):"]);
+}
+elseif ($user['step'] == 'adm_prod_price') {
+    $parts = explode("|", $user['temp_data']);
+    $cat = $parts[0];
+    $name = $parts[1];
+    $price = (int)$text;
+
+    $db->prepare("INSERT INTO products (category, name, price) VALUES (?, ?, ?)")->execute([$cat, $name, $price]);
+    $db->prepare("UPDATE users SET step = 'none', temp_data = '' WHERE chat_id = ?")->execute([$chat_id]);
+    bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Yangi paket muvaffaqiyatli qo'shildi!"]);
 }
     elseif ($user['step'] == 'wait_promo') {
     if ($text == "❌ Bekor qilish") {
@@ -320,13 +361,25 @@ if (isset($update->callback_query)) {
     ]);
 }
 
-    elseif (strpos($data, 'game_') === 0) {
-        $g = str_replace('game_', '', $data);
-        $btns = [];
-        foreach ($products[$g]['items'] as $ik => $iv) $btns[] = [['text' => "{$iv['n']} - {$iv['p']} so'm", 'callback_data' => "buy_{$g}_{$ik}"]];
-        $btns[] = [['text' => "🔙 Orqaga", 'callback_data' => "back_to_games"]];
-        bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => "Paketni tanlang:", 'reply_markup' => json_encode(['inline_keyboard' => $btns])]);
+   elseif (strpos($data, 'game_') === 0) {
+    $cat = str_replace('game_', '', $data);
+    $stmt = $db->prepare("SELECT * FROM products WHERE category = ?");
+    $stmt->execute([$cat]);
+    $items = $stmt->fetchAll();
+
+    $btns = [];
+    foreach ($items as $item) {
+        $btns[] = [['text' => "{$item['name']} - " . number_format($item['price']) . " so'm", 'callback_data' => "buy_prod_{$item['id']}"]];
     }
+    $btns[] = [['text' => "🔙 Orqaga", 'callback_data' => "back_to_games"]];
+    
+    bot('editMessageText', [
+        'chat_id' => $chat_id, 
+        'message_id' => $mid, 
+        'text' => "Kerakli paketni tanlang:", 
+        'reply_markup' => json_encode(['inline_keyboard' => $btns])
+    ]);
+}
 
     elseif ($data == "back_to_games") {
         $btn = [];
