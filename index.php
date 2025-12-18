@@ -1,6 +1,6 @@
 <?php
-// SealSeen Professional Bot v3.0 - Refactored & Stable
-// Mualliflik huquqi saqlangan holda foydalaning.
+// SealSeen Professional Bot v3.1 - Fixed Version
+// Kabinet va Mailing to'liq tuzatildi.
 
 header('Content-Type: text/html; charset=utf-8');
 date_default_timezone_set('Asia/Tashkent');
@@ -10,10 +10,10 @@ ini_set('error_log', 'bot_errors.log');
 
 // --- SOZLAMALAR ---
 $config = [
-    'bot_token' => getenv('BOT_TOKEN') ?: 'YOUR_BOT_TOKEN_HERE', // Tokenni shu yerga yoki env ga yozing
-    'admin_id'  => (int)(getenv('ADMIN_ID') ?: 123456789),       // Admin ID
+    'bot_token' => getenv('BOT_TOKEN') ?: 'YOUR_BOT_TOKEN_HERE', 
+    'admin_id'  => (int)(getenv('ADMIN_ID') ?: 123456789),       
     'db_file'   => 'sealseen.db',
-    'card_num'  => '5614 6868 1732 2558' // To'lov kartasi
+    'card_num'  => '5614 6868 1732 2558' 
 ];
 
 if (empty($config['bot_token'])) die("Bot tokeni kiritilmagan!");
@@ -23,16 +23,16 @@ try {
     $db = new PDO('sqlite:' . $config['db_file']);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    // WAL rejimi - tezkorlik va ko'p foydalanuvchi uchun
     $db->exec('PRAGMA journal_mode = WAL;'); 
 } catch (PDOException $e) {
     die("DB Ulanish xatosi: " . $e->getMessage());
 }
 
-// --- JADVALLARNI TEKSHIRISH ---
+// --- JADVALLARNI TEKSHIRISH (FIXED) ---
+// Orders jadvaliga 'amount' ustuni qo'shildi
 $tables = [
     "users" => "chat_id INTEGER PRIMARY KEY, name TEXT, balance INTEGER DEFAULT 0, step TEXT DEFAULT 'none', temp_data TEXT DEFAULT ''",
-    "orders" => "id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, type TEXT, game TEXT, item TEXT, price INTEGER, player_id TEXT, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+    "orders" => "id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, type TEXT, game TEXT, item TEXT, price INTEGER, amount INTEGER, player_id TEXT, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
     "products" => "id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, name TEXT, price INTEGER",
     "promos" => "code TEXT PRIMARY KEY, amount INTEGER, status TEXT DEFAULT 'active'"
 ];
@@ -98,7 +98,6 @@ try {
         // --- ADMIN REPLAY (Javob berish) ---
         if ($chat_id == $config['admin_id'] && isset($msg->reply_to_message)) {
             $replyTxt = $msg->reply_to_message->text ?? $msg->reply_to_message->caption ?? '';
-            // ID ni aniqlash (Regexni moslashtirish)
             if (preg_match('/🆔 ID: (\d+)/', $replyTxt, $matches)) {
                 $userId = $matches[1];
                 bot('sendMessage', [
@@ -197,16 +196,17 @@ try {
             }
         }
 
-        // 4. Admin: Mailing
+        // 4. Admin: Mailing (FIXED)
         elseif ($user['step'] == 'adm_mail_all' && $chat_id == $config['admin_id']) {
             $users = $db->query("SELECT chat_id FROM users")->fetchAll(PDO::FETCH_COLUMN);
             $count = 0;
+            // Xabar yuborishni biroz sekinlatish (serverni qiynamaslik uchun) yoki shunchaki loop
             foreach ($users as $uid) {
-                bot('sendMessage', ['chat_id' => $uid, 'text' => $text]);
-                $count++;
+                $res = bot('sendMessage', ['chat_id' => $uid, 'text' => $text]);
+                if ($res && $res->ok) $count++;
             }
             $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Xabar $count ta foydalanuvchiga yuborildi."]);
+            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Xabar $count ta foydalanuvchiga muvaffaqiyatli yuborildi."]);
         }
 
         // 5. Depozit summasini kiritish
@@ -249,7 +249,6 @@ try {
         // 7. O'yin ID sini kiritish va sotib olish
         elseif ($user['step'] == 'wait_game_id') {
             $productId = (int)$user['temp_data'];
-            // Mahsulotni qayta tekshiramiz (xavfsizlik uchun)
             $pStmt = $db->prepare("SELECT * FROM products WHERE id = ?");
             $pStmt->execute([$productId]);
             $product = $pStmt->fetch();
@@ -260,7 +259,7 @@ try {
                     $db->prepare("UPDATE users SET balance = balance - ?, step = 'none', temp_data = '' WHERE chat_id = ?")->execute([$product['price'], $chat_id]);
                     
                     // Order yaratish
-                    $db->prepare("INSERT INTO orders (user_id, game, item, price, player_id) VALUES (?, ?, ?, ?, ?)")
+                    $db->prepare("INSERT INTO orders (user_id, game, item, price, player_id, type) VALUES (?, ?, ?, ?, ?, 'purchase')")
                        ->execute([$chat_id, strtoupper($product['category']), $product['name'], $product['price'], $text]);
                     
                     $orderId = $db->lastInsertId();
@@ -304,6 +303,7 @@ try {
         }
 
         elseif ($text == "👤 Kabinet") {
+            // FIX: "amount" ustuni endi mavjud va "orders" table da ishlaydi
             $dep = $db->prepare("SELECT SUM(amount) FROM orders WHERE user_id = ? AND status = 'completed' AND type = 'deposit'");
             $dep->execute([$chat_id]);
             $totalIn = $dep->fetchColumn() ?: 0;
@@ -383,10 +383,18 @@ try {
 
         // --- ADMIN ACTIONS ---
         if ($chat_id == $config['admin_id']) {
+            
+            // FIX: Mailing uchun Step o'rnatish
+            if ($data == "adm_mail") {
+                $db->prepare("UPDATE users SET step = 'adm_mail_all' WHERE chat_id = ?")->execute([$chat_id]);
+                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "📣 Mailing xabarini yuboring (Text, Rasm yoki Video):"]);
+            }
+
             // To'lovni tasdiqlash
-            if (strpos($data, "pay_ok_") === 0) {
+            elseif (strpos($data, "pay_ok_") === 0) {
                 list($dummy, $dummy2, $uid, $amount) = explode("_", $data);
                 $db->prepare("UPDATE users SET balance = balance + ? WHERE chat_id = ?")->execute([$amount, $uid]);
+                // FIX: 'amount' ustuniga yozish
                 $db->prepare("INSERT INTO orders (user_id, type, amount, status) VALUES (?, 'deposit', ?, 'completed')")->execute([$uid, $amount]);
                 
                 bot('editMessageCaption', ['chat_id' => $chat_id, 'message_id' => $mid, 'caption' => "✅ <b>To'lov tasdiqlandi!</b>\nUser: $uid\nSumma: " . formatSum($amount), 'parse_mode' => 'HTML']);
