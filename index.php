@@ -1,7 +1,7 @@
 <?php
 // SealSeen Professional Bot v3.0 - Full Stable Version
 ob_start();
-ini_set('display_errors', 0);
+ini_set('display_errors', 0); 
 
 $botToken = getenv('BOT_TOKEN');
 $adminId = getenv('ADMIN_ID');
