@@ -238,9 +238,16 @@ elseif($user['step'] == 'send_all' && $chat_id == $adminId){
             [['text' => "🎁 Promo-kodni ishlatish", 'callback_data' => "use_promo"]] // Yangi tugma
         ]
     ]);
+    $out_text = "💼 <b>Kabinetingizga xush kelibsiz.</b>\n\n";
+    $out_text .= "📋 <b>Ma'lumotlaringiz</b>\n";
+    $out_text .= "├ 🆔 <b>ID raqam:</b> <code>$chat_id</code>\n";
+    $out_text .= "├ 💵 <b>Hisobingiz:</b> " . number_format($user['balance']) . " so'm\n";
+    $out_text .= "╰ ✅ <b>Kiritgan pullaringiz:</b> " . number_format($total_in) . " so'm";
+
     bot('sendMessage', [
-        'chat_id' => $chat_id, 
-        'text' => "Sizning balansingiz: " . number_format($user['balance']) . " so'm", 
+        'chat_id' => $chat_id,
+        'text' => $out_text,
+        'parse_mode' => 'HTML',
         'reply_markup' => $key
     ]);
 }
@@ -248,7 +255,7 @@ elseif($user['step'] == 'send_all' && $chat_id == $adminId){
     elseif ($text == "🛍 Xizmatlar") {
         $btn = [];
         foreach ($products as $k => $v) $btn[] = [['text' => $v['name'], 'callback_data' => "game_$k"]];
-        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "O'yinni tanlang:", 'reply_markup' => json_encode(['inline_keyboard' => $btn])]);
+        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Xizmatlarimizni tanlaganingizdan xursandmiz! 👇 Xizmatlardan birini tanlang:", 'reply_markup' => json_encode(['inline_keyboard' => $btn])]);
     }
 
     // TO'LOV JARAYONI
@@ -324,7 +331,7 @@ if (isset($update->callback_query)) {
     elseif ($data == "back_to_games") {
         $btn = [];
         foreach ($products as $k => $v) $btn[] = [['text' => $v['name'], 'callback_data' => "game_$k"]];
-        bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => "O'yinni tanlang:", 'reply_markup' => json_encode(['inline_keyboard' => $btn])]);
+        bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => "✅ Xizmatlarimizni tanlaganingizdan xursandmiz! 👇 Xizmatlardan birini tanlang:", 'reply_markup' => json_encode(['inline_keyboard' => $btn])]);
     }
 
     elseif (strpos($data, 'buy_') === 0) {
