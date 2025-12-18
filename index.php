@@ -45,6 +45,10 @@ $db->exec("CREATE TABLE IF NOT EXISTS promos (
     status TEXT DEFAULT 'active'
 )");
 
+// Admin to'lovni tasdiqlagan joyida (namuna):
+$db->prepare("INSERT INTO orders (user_id, type, amount, status) VALUES (?, 'deposit', ?, 'completed')")
+   ->execute([$targetId, $amount]);
+
 
 
 // Mahsulotlar
@@ -272,13 +276,20 @@ elseif ($user['step'] == 'adm_prod_price') {
         bot('sendMessage', ['chat_id' => $adminId, 'text' => "✅ Xabar barcha foydalanuvchilarga yuborildi!"]);
     }
     
-   elseif ($text == "💵 Hisobim") {
+   elseif ($text == "👤 Kabinet") {
+    // FAQAT karta orqali muvaffaqiyatli to'ldirilgan pullarni hisoblash
+    // Bu yerda status='completed' bo'lishi shart (ya'ni admin tasdiqlagan)
+    $stmt = $db->prepare("SELECT SUM(amount) FROM orders WHERE user_id = ? AND status = 'completed' AND type = 'deposit'");
+    $stmt->execute([$chat_id]);
+    $total_in = $stmt->fetchColumn() ?? 0;
+
     $key = json_encode([
         'inline_keyboard' => [
             [['text' => "💳 Hisobni to'ldirish", 'callback_data' => "deposit"]],
-            [['text' => "🎁 Promo-kodni ishlatish", 'callback_data' => "use_promo"]] // Yangi tugma
+            [['text' => "🎁 Promo-kodni ishlatish", 'callback_data' => "use_promo"]]
         ]
     ]);
+
     $out_text = "💼 <b>Kabinetingizga xush kelibsiz.</b>\n\n";
     $out_text .= "📋 <b>Ma'lumotlaringiz</b>\n";
     $out_text .= "├ 🆔 <b>ID raqam:</b> <code>$chat_id</code>\n";
