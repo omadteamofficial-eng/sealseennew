@@ -84,6 +84,27 @@ if (isset($update->message)) {
         }
         exit;
     }
+    // ADMIN REPLY QILIB JAVOB YOZISHI
+if ($chat_id == $adminId && isset($msg->reply_to_message)) {
+    $replyText = $msg->reply_to_message->text;
+    
+    // Xabar matnidan foydalanuvchi ID sini qidirib topish
+    if (preg_match('/🆔 ID: (\d+)/', $replyText, $matches)) {
+        $userId = $matches[1];
+        
+        bot('sendMessage', [
+            'chat_id' => $userId,
+            'text' => "📩 <b>Admindan javob keldi:</b>\n\n$text",
+            'parse_mode' => 'HTML'
+        ]);
+        
+        bot('sendMessage', [
+            'chat_id' => $adminId,
+            'text' => "✅ Javob foydalanuvchiga yuborildi."
+        ]);
+        exit; // Javob yuborilgach, boshqa shartlarni tekshirish shart emas
+    }
+}
 
     if ($text == "/start" || $text == "🏠 Bosh menyu" || $text == "❌ Bekor qilish") {
         $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
@@ -99,6 +120,31 @@ if($text == "/stat" && $chat_id == $adminId){
         'chat_id' => $adminId,
         'text' => "📊 Statistikangiz:\nUserlar: $u_count\nBuyurtmalar: $o_count\nSumma: ".number_format($total_sum)." so'm"
     ]);
+}
+    elseif ($user['step'] == 'wait_help') {
+    if ($text == "❌ Bekor qilish") {
+        $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
+        bot('sendMessage', [
+            'chat_id' => $chat_id, 
+            'text' => "🏠 Murojaat bekor qilindi.",
+            'reply_markup' => json_encode(['keyboard' => [[['text' => "🎮 Xizmatlar"], ['text' => "👤 Kabinet"]], [['text' => "📞 Yordam"]]], 'resize_keyboard' => true])
+        ]);
+    } else {
+        // Adminga xabar yuborish
+        bot('sendMessage', [
+            'chat_id' => $adminId,
+            'text' => "📨 **Yangi murojaat!**\n\n👤 Foydalanuvchi: <a href='tg://user?id=$chat_id'>$name</a>\n🆔 ID: <code>$chat_id</code>\n\n💬 Xabar: <i>$text</i>",
+            'parse_mode' => 'HTML'
+        ]);
+
+        // Foydalanuvchiga tasdiq
+        $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
+        bot('sendMessage', [
+            'chat_id' => $chat_id,
+            'text' => "✅ Xabaringiz adminga yetkazildi. Javobni kuting.",
+            'reply_markup' => json_encode(['keyboard' => [[['text' => "🎮 Xizmatlar"], ['text' => "👤 Kabinet"]], [['text' => "📞 Yordam"]]], 'resize_keyboard' => true])
+        ]);
+    }
 }
 
 // --- C BO'LAGI (Promo yaratish) ---
@@ -125,6 +171,18 @@ elseif($user['step'] == 'send_all' && $chat_id == $adminId){
     }
     $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$adminId]);
     bot('sendMessage', ['chat_id' => $adminId, 'text' => "✅ Hamma yuborildi."]);
+}
+    elseif ($text == "📞 Yordam") {
+    $db->prepare("UPDATE users SET step = 'wait_help' WHERE chat_id = ?")->execute([$chat_id]);
+    bot('sendMessage', [
+        'chat_id' => $chat_id,
+        'text' => "📝 **Adminga murojaatingizni yozib yuboring.**\nMutaxassislarimiz tez orada javob berishadi.",
+        'parse_mode' => 'Markdown',
+        'reply_markup' => json_encode([
+            'keyboard' => [[['text' => "❌ Bekor qilish"]]],
+            'resize_keyboard' => true
+        ])
+    ]);
 }
     elseif ($user['step'] == 'wait_promo') {
     if ($text == "❌ Bekor qilish") {
