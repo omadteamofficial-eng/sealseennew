@@ -1,6 +1,6 @@
 <?php
-$admin = '8125289524';
-$token = '8398800703:AAHhCmdBlLdHvop4KvlehTbmbQLlzmC4jZk';
+$admin = "8125289524";
+$token = "8398800703:AAHhCmdBlLdHvop4KvlehTbmbQLlzmC4jZk";
 echo "https://api.telegram.org/bot".$token."/setwebhook?url=".$_SERVER['SERVER_NAME']."".$_SERVER['SCRIPT_NAME'];
 function bot($method,$datas=[]){
 global $token;
