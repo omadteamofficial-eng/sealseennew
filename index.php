@@ -31,6 +31,15 @@ $db->exec("CREATE TABLE IF NOT EXISTS orders (
     status TEXT DEFAULT 'pending'
 )");
 
+// Promo-kodlar uchun jadval
+$db->exec("CREATE TABLE IF NOT EXISTS promos (
+    code TEXT PRIMARY KEY, 
+    amount INTEGER, 
+    status TEXT DEFAULT 'active'
+)");
+
+
+
 // Mahsulotlar
 $products = [
     'pubg' => ['name' => "PUBG Mobile 🔫", 'items' => ['60_uc' => ['n' => '60 UC', 'p' => 12000], '325_uc' => ['n' => '325 UC', 'p' => 60000]]],
@@ -81,6 +90,51 @@ if (isset($update->message)) {
         $key = json_encode(['keyboard' => [[['text' => "🎮 Xizmatlar"], ['text' => "👤 Kabinet"]], [['text' => "📞 Yordam"]]], 'resize_keyboard' => true]);
         bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Asosiy menyu:", 'reply_markup' => $key]);
     } 
+        // --- A BO'LAGI (Statistika) ---
+if($text == "/stat" && $chat_id == $adminId){
+    $u_count = $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
+    $o_count = $db->query("SELECT COUNT(*) FROM orders WHERE status='completed'")->fetchColumn();
+    $total_sum = $db->query("SELECT SUM(price) FROM orders WHERE status='completed'")->fetchColumn();
+    bot('sendMessage', [
+        'chat_id' => $adminId,
+        'text' => "📊 Statistikangiz:\nUserlar: $u_count\nBuyurtmalar: $o_count\nSumma: ".number_format($total_sum)." so'm"
+    ]);
+}
+
+// --- C BO'LAGI (Promo yaratish) ---
+elseif(strpos($text, "/promo ") === 0 && $chat_id == $adminId){
+    $sum = str_replace("/promo ", "", $text);
+    if(is_numeric($sum)){
+        $code = "PC" . rand(1000, 9999);
+        $db->prepare("INSERT INTO promos (code, amount) VALUES (?, ?)")->execute([$code, $sum]);
+        bot('sendMessage', ['chat_id' => $adminId, 'text' => "🎁 Kod: `$code`\nSumma: $sum", 'parse_mode' => 'Markdown']);
+    }
+}
+
+// --- B BO'LAGI (Xabar yuborish) ---
+elseif($text == "/send" && $chat_id == $adminId){
+    $db->prepare("UPDATE users SET step = 'send_all' WHERE chat_id = ?")->execute([$adminId]);
+    bot('sendMessage', ['chat_id' => $adminId, 'text' => "Xabarni yuboring:"]);
+}
+
+// Diqqat! Bu qism foydalanuvchi "step"ini tekshiradi:
+elseif($user['step'] == 'send_all' && $chat_id == $adminId){
+    $all_users = $db->query("SELECT chat_id FROM users")->fetchAll(PDO::FETCH_COLUMN);
+    foreach($all_users as $u_id){
+        bot('sendMessage', ['chat_id' => $u_id, 'text' => $text]);
+    }
+    $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$adminId]);
+    bot('sendMessage', ['chat_id' => $adminId, 'text' => "✅ Hamma yuborildi."]);
+}
+    // Reklamani hammaga tarqatish jarayoni
+    elseif ($user['step'] == 'send_all' && $chat_id == $adminId) {
+        $all_users = $db->query("SELECT chat_id FROM users")->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($all_users as $u_id) {
+            bot('sendMessage', ['chat_id' => $u_id, 'text' => $text]);
+        }
+        $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$adminId]);
+        bot('sendMessage', ['chat_id' => $adminId, 'text' => "✅ Xabar barcha foydalanuvchilarga yuborildi!"]);
+    }
     
     elseif ($text == "👤 Kabinet") {
         $key = json_encode(['inline_keyboard' => [[['text' => "💳 Hisobni to'ldirish", 'callback_data' => "deposit"]]]]);
