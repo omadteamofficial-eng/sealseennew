@@ -306,7 +306,7 @@ if (isset($update->callback_query)) {
     $mid = $cb->message->message_id;
 
     if ($data == "deposit") {
-        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "To'lov summasini kiriting (faqat raqam):", 'reply_markup' => json_encode(['keyboard' => [[['text' => "❌ Bekor qilish"]]], 'resize_keyboard' => true])]);
+        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "💵 Hisobingzini qancha miqdorda to'ldirmoqchisiz ? ⏬ Minimal miqdor: 1000 so'm ‼️ Faqat raqamlardan foydalaning. 🔜 Masalan: 1000", 'reply_markup' => json_encode(['keyboard' => [[['text' => "❌ Bekor qilish"]]], 'resize_keyboard' => true])]);
         $db->prepare("UPDATE users SET step = 'wait_sum' WHERE chat_id = ?")->execute([$chat_id]);
     }
         if ($data == "use_promo") {
