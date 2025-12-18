@@ -126,6 +126,43 @@ elseif($user['step'] == 'send_all' && $chat_id == $adminId){
     $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$adminId]);
     bot('sendMessage', ['chat_id' => $adminId, 'text' => "✅ Hamma yuborildi."]);
 }
+    elseif ($user['step'] == 'wait_promo') {
+    if ($text == "❌ Bekor qilish") {
+        $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
+        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Bosh menyuga qaytdingiz.", 'reply_markup' => json_encode(['remove_keyboard' => true])]);
+        // Bosh menyuni chiqarish kodi bu yerda bo'lishi mumkin
+    } else {
+        // Promo-kodni bazadan qidirish
+        $stmt = $db->prepare("SELECT * FROM promos WHERE code = ? AND status = 'active'");
+        $stmt->execute([$text]);
+        $promo_data = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($promo_data) {
+            $summa = $promo_data['amount'];
+            
+            // 1. User balansini oshirish
+            $db->prepare("UPDATE users SET balance = balance + ? WHERE chat_id = ?")->execute([$summa, $chat_id]);
+            
+            // 2. Promo-kodni "ishlatilgan" (used) qilish
+            $db->prepare("UPDATE promos SET status = 'used' WHERE code = ?")->execute([$text]);
+            
+            // 3. Stepni tozalash
+            $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
+
+            bot('sendMessage', [
+                'chat_id' => $chat_id, 
+                'text' => "✅ **Muvaffaqiyatli!**\nHisobingizga $summa so'm qo'shildi.", 
+                'parse_mode' => 'Markdown',
+                'reply_markup' => json_encode(['remove_keyboard' => true])
+            ]);
+        } else {
+            bot('sendMessage', [
+                'chat_id' => $chat_id, 
+                'text' => "❌ **Xato!**\nPromo-kod noto'g'ri, muddati o'tgan yoki allaqachon ishlatilgan."
+            ]);
+        }
+    }
+}
     // Reklamani hammaga tarqatish jarayoni
     elseif ($user['step'] == 'send_all' && $chat_id == $adminId) {
         $all_users = $db->query("SELECT chat_id FROM users")->fetchAll(PDO::FETCH_COLUMN);
@@ -136,10 +173,19 @@ elseif($user['step'] == 'send_all' && $chat_id == $adminId){
         bot('sendMessage', ['chat_id' => $adminId, 'text' => "✅ Xabar barcha foydalanuvchilarga yuborildi!"]);
     }
     
-    elseif ($text == "👤 Kabinet") {
-        $key = json_encode(['inline_keyboard' => [[['text' => "💳 Hisobni to'ldirish", 'callback_data' => "deposit"]]]]);
-        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Sizning balansingiz: " . number_format($user['balance']) . " so'm", 'reply_markup' => $key]);
-    }
+   elseif ($text == "👤 Kabinet") {
+    $key = json_encode([
+        'inline_keyboard' => [
+            [['text' => "💳 Hisobni to'ldirish", 'callback_data' => "deposit"]],
+            [['text' => "🎁 Promo-kodni ishlatish", 'callback_data' => "use_promo"]] // Yangi tugma
+        ]
+    ]);
+    bot('sendMessage', [
+        'chat_id' => $chat_id, 
+        'text' => "Sizning balansingiz: " . number_format($user['balance']) . " so'm", 
+        'reply_markup' => $key
+    ]);
+}
 
     elseif ($text == "🎮 Xizmatlar") {
         $btn = [];
@@ -198,6 +244,16 @@ if (isset($update->callback_query)) {
         bot('sendMessage', ['chat_id' => $chat_id, 'text' => "To'lov summasini kiriting (faqat raqam):", 'reply_markup' => json_encode(['keyboard' => [[['text' => "❌ Bekor qilish"]]], 'resize_keyboard' => true])]);
         $db->prepare("UPDATE users SET step = 'wait_sum' WHERE chat_id = ?")->execute([$chat_id]);
     }
+        if ($data == "use_promo") {
+    $db->prepare("UPDATE users SET step = 'wait_promo' WHERE chat_id = ?")->execute([$chat_id]);
+    bot('deleteMessage', ['chat_id' => $chat_id, 'message_id' => $mid]);
+    bot('sendMessage', [
+        'chat_id' => $chat_id, 
+        'text' => "🎁 **Promo-kodni kiriting:**", 
+        'parse_mode' => 'Markdown',
+        'reply_markup' => json_encode(['keyboard' => [[['text' => "❌ Bekor qilish"]]], 'resize_keyboard' => true])
+    ]);
+}
 
     elseif (strpos($data, 'game_') === 0) {
         $g = str_replace('game_', '', $data);
