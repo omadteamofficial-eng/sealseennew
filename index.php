@@ -262,7 +262,7 @@ elseif($user['step'] == 'send_all' && $chat_id == $adminId){
     elseif ($user['step'] == 'wait_sum') {
         if (is_numeric($text) && $text >= 1000) {
             $db->prepare("UPDATE users SET step = 'wait_receipt', temp_data = ? WHERE chat_id = ?")->execute([$text, $chat_id]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Karta: `5614 6868 1732 2558`\nSumma: $text so'm\n\nTo'lov qilib chekni (rasm) yuboring:", 'parse_mode' => 'Markdown']);
+            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Karta: `5614 6868 1732 2558`\nSumma: $text so'm\n\n📝 To'lov chekni (rasm) yuboring", 'parse_mode' => 'Markdown']);
         }
     } 
     
