@@ -87,8 +87,8 @@ if (isset($update->message)) {
 
     if ($text == "/start" || $text == "🏠 Bosh menyu" || $text == "❌ Bekor qilish") {
         $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
-        $key = json_encode(['keyboard' => [[['text' => "🎮 Xizmatlar"], ['text' => "👤 Kabinet"]], [['text' => "📞 Yordam"]]], 'resize_keyboard' => true]);
-        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Asosiy menyu:", 'reply_markup' => $key]);
+        $key = json_encode(['keyboard' => [[['text' => "🛍 Xizmatlar"], ['text' => "💵 Hisobim"]], [['text' => "📞 Yordam"]]], 'resize_keyboard' => true]);
+        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "🖥️ Asosiy menyudasiz", 'reply_markup' => $key]);
     } 
         // --- A BO'LAGI (Statistika) ---
 if($text == "/stat" && $chat_id == $adminId){
@@ -129,7 +129,7 @@ elseif($user['step'] == 'send_all' && $chat_id == $adminId){
     elseif ($user['step'] == 'wait_promo') {
     if ($text == "❌ Bekor qilish") {
         $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
-        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Bosh menyuga qaytdingiz.", 'reply_markup' => json_encode(['remove_keyboard' => true])]);
+        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "🖥️ Asosiy menyuga qaytdingiz.", 'reply_markup' => json_encode(['remove_keyboard' => true])]);
         // Bosh menyuni chiqarish kodi bu yerda bo'lishi mumkin
     } else {
         // Promo-kodni bazadan qidirish
@@ -173,7 +173,7 @@ elseif($user['step'] == 'send_all' && $chat_id == $adminId){
         bot('sendMessage', ['chat_id' => $adminId, 'text' => "✅ Xabar barcha foydalanuvchilarga yuborildi!"]);
     }
     
-   elseif ($text == "👤 Kabinet") {
+   elseif ($text == "💵 Hisobim") {
     $key = json_encode([
         'inline_keyboard' => [
             [['text' => "💳 Hisobni to'ldirish", 'callback_data' => "deposit"]],
@@ -187,7 +187,7 @@ elseif($user['step'] == 'send_all' && $chat_id == $adminId){
     ]);
 }
 
-    elseif ($text == "🎮 Xizmatlar") {
+    elseif ($text == "🛍 Xizmatlar") {
         $btn = [];
         foreach ($products as $k => $v) $btn[] = [['text' => $v['name'], 'callback_data' => "game_$k"]];
         bot('sendMessage', ['chat_id' => $chat_id, 'text' => "O'yinni tanlang:", 'reply_markup' => json_encode(['inline_keyboard' => $btn])]);
