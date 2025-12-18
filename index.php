@@ -122,7 +122,7 @@ try {
             ]);
             bot('sendMessage', [
                 'chat_id' => $chat_id,
-                'text' => "👋 Salom <b>" . esc($name) . "</b>! Asosiy menyudasiz.",
+                'text' => "🖥️" . esc($name) . "</b> Asosiy menyudasiz.",
                 'parse_mode' => 'HTML',
                 'reply_markup' => $key
             ]);
