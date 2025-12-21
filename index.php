@@ -13,7 +13,7 @@ $config = [
     'bot_token' => getenv('BOT_TOKEN') ?: 'YOUR_BOT_TOKEN_HERE', // Tokeningiz
     'admin_id'  => (int)(getenv('ADMIN_ID') ?: 123456789),       // Admin ID
     'db_file'   => 'smmbot.db',
-    'card_num'  => '8600 0000 0000 0000' // Karta raqam
+    'card_num'  => '5614 6868 1732 2558' // Karta raqam
 ];
 
 // Token tekshiruv
