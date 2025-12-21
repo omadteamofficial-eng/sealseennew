@@ -1,56 +1,74 @@
 <?php
-// SMM Professional Bot v5.0 - Cabinet & Bonus Fixed
-// Muallif: Sizning talabingiz asosida yangilandi
+/**
+ * PROFESSIONAL SMM BOT v5.0
+ * Muallif: Sizning talabingiz asosida (Fixed Version)
+ * Xususiyatlar: Mukammal Kabinet, Kunlik Bonus, Admin Panel, SQLite
+ */
 
 header('Content-Type: text/html; charset=utf-8');
 date_default_timezone_set('Asia/Tashkent');
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
-ini_set('error_log', 'bot_smm_errors.log');
+ini_set('error_log', 'bot_errors.log');
 
-// --- SOZLAMALAR ---
+// Agar hostingingiz .env fayllarni o'qiy olsa:
 $config = [
-    'bot_token' => getenv('BOT_TOKEN') ?: 'YOUR_BOT_TOKEN_HERE', // Tokeningiz
-    'admin_id'  => (int)(getenv('ADMIN_ID') ?: 123456789),       // Admin ID
-    'db_file'   => 'smmbot.db',
-    'card_num'  => '5614 6868 1732 2558' // Karta raqam
+    'bot_token' => getenv('BOT_TOKEN'),
+    'admin_id'  => (int)getenv('ADMIN_ID'),
+    'db_file'   => 'smm_pro.db',
+    'card_num'  => getenv('CARD_NUM'),
+    'min_pay'   => 1000,
+    'bonus_sum' => 11
 ];
 
-// Token tekshiruv
-if ($config['bot_token'] == 'YOUR_BOT_TOKEN_HERE') die("Bot tokeni kiritilmagan!");
-
-// --- DB ULANISH ---
+// ================= BAZA BILAN ISHLASH (PDO) =================
 try {
     $db = new PDO('sqlite:' . $config['db_file']);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    $db->exec('PRAGMA journal_mode = WAL;'); 
+    
+    // Jadvallarni yaratish (Agar yo'q bo'lsa)
+    $commands = [
+        "CREATE TABLE IF NOT EXISTS users (
+            chat_id INTEGER PRIMARY KEY, 
+            name TEXT, 
+            balance INTEGER DEFAULT 0, 
+            step TEXT DEFAULT 'none', 
+            temp_data TEXT, 
+            last_bonus_date TEXT DEFAULT NULL,
+            joined_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        "CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            category TEXT, 
+            name TEXT, 
+            price INTEGER
+        )",
+        "CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            user_id INTEGER, 
+            type TEXT,              -- 'order' (xarid) yoki 'deposit' (to'lov)
+            service_name TEXT,      -- Xizmat nomi
+            amount INTEGER,         -- Summa
+            link TEXT DEFAULT NULL, -- Link (xarid uchun)
+            status TEXT DEFAULT 'pending', 
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        "CREATE TABLE IF NOT EXISTS promos (
+            code TEXT PRIMARY KEY, 
+            amount INTEGER, 
+            status TEXT DEFAULT 'active'
+        )"
+    ];
+
+    foreach ($commands as $cmd) {
+        $db->exec($cmd);
+    }
 } catch (PDOException $e) {
-    die("DB Ulanish xatosi: " . $e->getMessage());
+    die("Baza xatosi: " . $e->getMessage());
 }
 
-// --- JADVALLAR VA YANGILANISHLAR ---
-// Users jadvaliga 'last_bonus' ustunini qo'shamiz (Eski bazalar uchun yangilash)
-$tables = [
-    "users" => "chat_id INTEGER PRIMARY KEY, name TEXT, balance INTEGER DEFAULT 0, step TEXT DEFAULT 'none', temp_data TEXT DEFAULT '', last_bonus TEXT DEFAULT NULL",
-    "orders" => "id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, type TEXT, platform TEXT, service TEXT, price INTEGER, link TEXT, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
-    "products" => "id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, name TEXT, price INTEGER",
-    "promos" => "code TEXT PRIMARY KEY, amount INTEGER, status TEXT DEFAULT 'active'"
-];
-
-foreach ($tables as $name => $schema) {
-    $db->exec("CREATE TABLE IF NOT EXISTS $name ($schema)");
-}
-
-// Agar eski baza bo'lsa va last_bonus ustuni bo'lmasa, uni qo'shamiz (Migratsiya)
-try {
-    $db->exec("ALTER TABLE users ADD COLUMN last_bonus TEXT DEFAULT NULL");
-} catch (Exception $e) {
-    // Ustun allaqachon mavjud bo'lsa xatolik beradi, buni ignor qilamiz
-}
-
-// --- YORDAMCHI FUNKSIYALAR ---
-
+// ================= FUNKSIYALAR =================
 function bot($method, $datas = []) {
     global $config;
     $url = "https://api.telegram.org/bot" . $config['bot_token'] . "/" . $method;
@@ -58,8 +76,10 @@ function bot($method, $datas = []) {
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $datas);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     $res = curl_exec($ch);
+    if (curl_errno($ch)) {
+        error_log("Curl xatosi: " . curl_error($ch));
+    }
     curl_close($ch);
     return json_decode($res);
 }
@@ -72,359 +92,353 @@ function formatSum($sum) {
     return number_format((float)$sum, 0, '.', ' ');
 }
 
-// --- UPDATE NI QABUL QILISH ---
+// ================= UPDATE NI QABUL QILISH =================
 $update = json_decode(file_get_contents('php://input'));
-if (!$update) exit;
 
-try {
-    $chat_id = null;
-    $user = null;
-    $text = "";
+if (isset($update->message)) {
+    $message = $update->message;
+    $chat_id = $message->chat->id;
+    $text = $message->text ?? '';
+    $name = $message->from->first_name ?? 'Foydalanuvchi';
+    
+    // Userni bazaga qo'shish yoki yangilash
+    $stmt = $db->prepare("INSERT OR IGNORE INTO users (chat_id, name) VALUES (?, ?)");
+    $stmt->execute([$chat_id, $name]);
+    
+    // User ma'lumotlarini olish
+    $user = $db->query("SELECT * FROM users WHERE chat_id = $chat_id")->fetch();
 
-    // 1. Oddiy xabar
-    if (isset($update->message)) {
-        $msg = $update->message;
-        $chat_id = $msg->chat->id;
-        $text = $msg->text ?? '';
-        $name = $msg->from->first_name ?? 'User';
-
-        // Foydalanuvchini yaratish
-        $db->prepare("INSERT OR IGNORE INTO users (chat_id, name) VALUES (?, ?)")->execute([$chat_id, $name]);
-        $user = $db->query("SELECT * FROM users WHERE chat_id = $chat_id")->fetch();
-
-        // Admin reply (javob berish)
-        if ($chat_id == $config['admin_id'] && isset($msg->reply_to_message)) {
-            $replyTxt = $msg->reply_to_message->text ?? $msg->reply_to_message->caption ?? '';
-            if (preg_match('/🆔 ID: (\d+)/', $replyTxt, $matches)) {
-                bot('sendMessage', [
-                    'chat_id' => $matches[1],
-                    'text' => "👨‍💻 <b>Admindan javob:</b>\n\n" . esc($text),
-                    'parse_mode' => 'HTML'
-                ]);
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Javob yuborildi."]);
-                exit;
-            }
+    // 1. START va MENYU
+    if ($text == "/start" || $text == "🏠 Bosh menyu" || $text == "❌ Bekor qilish") {
+        $db->prepare("UPDATE users SET step = 'none', temp_data = '' WHERE chat_id = ?")->execute([$chat_id]);
+        
+        $keys = [
+            [['text' => "🚀 Xizmatlar"], ['text' => "👤 Kabinet"]],
+            [['text' => "📞 Yordam"], ['text' => "📚 Qo'llanma"]]
+        ];
+        if ($chat_id == $config['admin_id']) {
+            $keys[] = [['text' => "⚙️ Admin Panel"]];
         }
 
-        // Bosh menyu
-        if ($text == "/start" || $text == "🏠 Bosh menyu" || $text == "❌ Bekor qilish") {
-            $db->prepare("UPDATE users SET step = 'none', temp_data = '' WHERE chat_id = ?")->execute([$chat_id]);
-            $key = json_encode([
-                'keyboard' => [
-                    [['text' => "🚀 Xizmatlar"], ['text' => "👤 Kabinet"]],
-                    [['text' => "📞 Yordam"], ['text' => "📚 Qo'llanma"]]
-                ],
-                'resize_keyboard' => true
-            ]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "👋 <b>Assalomu alaykum!</b>\nSMM xizmatlari botiga xush kelibsiz.", 'reply_markup' => $key, 'parse_mode' => 'HTML']);
-            exit;
-        }
-
-        // Steplar (Statuslar)
-        if ($user['step'] == 'wait_sum') {
-            if (is_numeric($text) && $text >= 1000) {
-                $db->prepare("UPDATE users SET step = 'wait_receipt', temp_data = ? WHERE chat_id = ?")->execute([$text, $chat_id]);
-                bot('sendMessage', [
-                    'chat_id' => $chat_id,
-                    'text' => "💳 <b>Hisobni to'ldirish</b>\n\nKarta: <code>" . $config['card_num'] . "</code>\nSumma: <b>" . formatSum($text) . " so'm</b>\n\n❗️ To'lov chekini (skrinshot) yuboring.",
-                    'parse_mode' => 'HTML'
-                ]);
-            } else {
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "❌ Minimal summa 1000 so'm. Qaytadan kiriting:"]);
-            }
-        }
-        elseif ($user['step'] == 'wait_receipt' && isset($msg->photo)) {
-            $fileId = end($msg->photo)->file_id;
-            bot('sendPhoto', [
-                'chat_id' => $config['admin_id'],
-                'photo' => $fileId,
-                'caption' => "💰 <b>To'lov Tekshiruvi</b>\n\n👤: " . esc($name) . "\n🆔 ID: <code>$chat_id</code>\n💵: <b>" . formatSum($user['temp_data']) . " so'm</b>",
-                'parse_mode' => 'HTML',
-                'reply_markup' => json_encode(['inline_keyboard' => [[
-                    ['text' => "✅ Tasdiqlash", 'callback_data' => "pay_ok_{$chat_id}_{$user['temp_data']}"],
-                    ['text' => "❌ Rad etish", 'callback_data' => "pay_no_{$chat_id}"]
-                ]]])
-            ]);
-            $db->prepare("UPDATE users SET step = 'none', temp_data = '' WHERE chat_id = ?")->execute([$chat_id]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Chek yuborildi. Admin tekshirib tasdiqlaydi."]);
-        }
-        elseif ($user['step'] == 'wait_link') {
-            $product = $db->query("SELECT * FROM products WHERE id = " . (int)$user['temp_data'])->fetch();
-            if ($product && $user['balance'] >= $product['price']) {
-                // Pulni yechib olish
-                $db->prepare("UPDATE users SET balance = balance - ?, step = 'none', temp_data = '' WHERE chat_id = ?")->execute([$product['price'], $chat_id]);
-                
-                // Buyurtma yaratish
-                $db->prepare("INSERT INTO orders (user_id, platform, service, price, link, type) VALUES (?, ?, ?, ?, ?, 'purchase')")
-                   ->execute([$chat_id, $product['category'], $product['name'], $product['price'], $text]);
-                $orderId = $db->lastInsertId();
-                
-                // Adminga yuborish
-                bot('sendMessage', [
-                    'chat_id' => $config['admin_id'],
-                    'text' => "📦 <b>Yangi Buyurtma #$orderId</b>\n\n👤: $name ($chat_id)\n📱: {$product['category']}\n💎: {$product['name']}\n🔗: " . esc($text) . "\n💰: " . formatSum($product['price']) . " so'm",
-                    'parse_mode' => 'HTML',
-                    'disable_web_page_preview' => true,
-                    'reply_markup' => json_encode(['inline_keyboard' => [[
-                        ['text' => "✅ Bajarildi", 'callback_data' => "ord_done_$orderId"], 
-                        ['text' => "🔙 Pulni qaytarish", 'callback_data' => "ord_ref_$orderId"]
-                    ]]])
-                ]);
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Buyurtma qabul qilindi (#$orderId). Admin tez orada bajaradi."]);
-            } else {
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "❌ Mablag' yetarli emas."]);
-                $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
-            }
-        }
-        // Promo kod
-        elseif ($user['step'] == 'wait_promo') {
-            $stmt = $db->prepare("SELECT * FROM promos WHERE code = ? AND status = 'active'");
-            $stmt->execute([$text]);
-            $promo = $stmt->fetch();
-            if ($promo) {
-                $db->prepare("UPDATE users SET balance = balance + ?, step = 'none' WHERE chat_id = ?")->execute([$promo['amount'], $chat_id]);
-                $db->prepare("UPDATE promos SET status = 'used' WHERE code = ?")->execute([$text]);
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Promo-kod aktivlashdi! Balansga " . formatSum($promo['amount']) . " so'm qo'shildi."]);
-            } else {
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "❌ Kod xato yoki eskirgan."]);
-            }
-        }
-        elseif ($user['step'] == 'wait_help') {
-             bot('sendMessage', [
-                'chat_id' => $config['admin_id'],
-                'text' => "📨 <b>Murojaat:</b>\n👤: " . esc($name) . "\n🆔 ID: <code>$chat_id</code>\n\n📄: " . esc($text),
-                'parse_mode' => 'HTML'
-            ]);
-            $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Xabar adminga yuborildi."]);
-        }
-
-        // Admin funksiyalari (Xizmat qo'shish)
-        elseif ($user['step'] == 'adm_add_cat' && $chat_id == $config['admin_id']) {
-            $db->prepare("UPDATE users SET step = 'adm_add_name', temp_data = ? WHERE chat_id = ?")->execute([$text, $chat_id]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✏️ Xizmat nomi (Masalan: 1000 Obunachi):"]);
-        }
-        elseif ($user['step'] == 'adm_add_name' && $chat_id == $config['admin_id']) {
-            $db->prepare("UPDATE users SET step = 'adm_add_price', temp_data = ? WHERE chat_id = ?")->execute([$user['temp_data'] . "|" . $text, $chat_id]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "💰 Narxi (faqat raqam):"]);
-        }
-        elseif ($user['step'] == 'adm_add_price' && $chat_id == $config['admin_id']) {
-            if(is_numeric($text)){
-                $ex = explode("|", $user['temp_data']);
-                $db->prepare("INSERT INTO products (category, name, price) VALUES (?, ?, ?)")->execute([$ex[0], $ex[1], (int)$text]);
-                $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Xizmat qo'shildi!"]);
-            }
-        }
-        elseif ($user['step'] == 'adm_mail_all' && $chat_id == $config['admin_id']) {
-            $users = $db->query("SELECT chat_id FROM users")->fetchAll(PDO::FETCH_COLUMN);
-            $cnt = 0;
-            foreach ($users as $uid) {
-                bot('sendMessage', ['chat_id' => $uid, 'text' => $text]);
-                $cnt++;
-            }
-            $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ $cnt kishiga yuborildi."]);
-        }
-
-        // TUGMALAR
-        if ($text == "👤 Kabinet") {
-            // Kabinetni yangilash
-            $totalIn = $db->query("SELECT SUM(amount) FROM orders WHERE user_id = $chat_id AND status = 'completed' AND type = 'deposit'")->fetchColumn() ?: 0;
-            
-            $msgText = "👤 <b>Shaxsiy Kabinet</b>\n\n🆔 ID: <code>$chat_id</code>\n👤 Ism: " . esc($name) . "\n💵 Balans: <b>" . formatSum($user['balance']) . " so'm</b>\n📥 Jami kiritilgan: " . formatSum($totalIn) . " so'm";
-            
-            $key = json_encode(['inline_keyboard' => [
-                [['text' => "💳 Hisobni to'ldirish", 'callback_data' => "deposit"]],
-                [['text' => "🎁 Kunlik Bonus (10 so'm)", 'callback_data' => "daily_bonus"]], // YANGI BONUS TUGMASI
-                [['text' => "🎫 Promo-kod", 'callback_data' => "use_promo"]]
-            ]]);
-            
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => $msgText, 'parse_mode' => 'HTML', 'reply_markup' => $key]);
-        }
-        elseif ($text == "🚀 Xizmatlar") {
-            $cats = $db->query("SELECT DISTINCT category FROM products")->fetchAll(PDO::FETCH_COLUMN);
-            if (!$cats) {
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "📂 Hozircha xizmatlar yo'q."]);
-            } else {
-                $btn = []; $row = [];
-                foreach ($cats as $c) {
-                    $emoji = "📱";
-                    if(stripos($c, 'insta') !== false) $emoji = "📸";
-                    if(stripos($c, 'tele') !== false) $emoji = "✈️";
-                    if(stripos($c, 'tik') !== false) $emoji = "🎵";
-                    $row[] = ['text' => "$emoji " . ucfirst($c), 'callback_data' => "cat_" . $c];
-                    if (count($row) == 2) { $btn[] = $row; $row = []; }
-                }
-                if ($row) $btn[] = $row;
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "🔻 Kerakli tarmoqni tanlang:", 'reply_markup' => json_encode(['inline_keyboard' => $btn])]);
-            }
-        }
-        elseif ($text == "📞 Yordam") {
-            $db->prepare("UPDATE users SET step = 'wait_help' WHERE chat_id = ?")->execute([$chat_id]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "📝 Savol yoki taklifingizni yozib qoldiring:", 'reply_markup' => json_encode(['keyboard' => [[['text' => "❌ Bekor qilish"]]], 'resize_keyboard' => true])]);
-        }
-        elseif ($text == "/panel" && $chat_id == $config['admin_id']) {
-            $key = json_encode(['inline_keyboard' => [
-                [['text' => "➕ Xizmat qo'shish", 'callback_data' => "adm_add_start"]],
-                [['text' => "🗑 Xizmatni o'chirish", 'callback_data' => "adm_del_list"]],
-                [['text' => "📣 Xabar tarqatish", 'callback_data' => "adm_mail"], ['text' => "📊 Statistika", 'callback_data' => "adm_stat"]]
-            ]]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "⚙️ <b>Admin Panel</b>", 'parse_mode' => 'HTML', 'reply_markup' => $key]);
-        }
+        bot('sendMessage', [
+            'chat_id' => $chat_id,
+            'text' => "👋 <b>Assalomu alaykum, $name!</b>\n\nSMM xizmatlari botiga xush kelibsiz. Quyidagi menyudan kerakli bo'limni tanlang:",
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['keyboard' => $keys, 'resize_keyboard' => true])
+        ]);
+        exit;
     }
 
-    // 2. Callback (Tugma bosilganda)
-    elseif (isset($update->callback_query)) {
-        $cb = $update->callback_query;
-        $chat_id = $cb->message->chat->id;
-        $mid = $cb->message->message_id;
-        $data = $cb->data;
+    // 2. KABINET (TUZATILGAN)
+    if ($text == "👤 Kabinet") {
+        // Balans user jadvalida, lekin jami kirimni orders jadvalidan hisoblaymiz
+        // COALESCE(SUM(amount), 0) -> Agar hech narsa bo'lmasa 0 qaytaradi (NULL emas)
+        $totalIn = $db->query("SELECT COALESCE(SUM(amount), 0) FROM orders WHERE user_id = $chat_id AND type = 'deposit' AND status = 'completed'")->fetchColumn();
+        
+        $msg = "👤 <b>Sizning Kabinetingiz:</b>\n\n";
+        $msg .= "🆔 ID: <code>$chat_id</code>\n";
+        $msg .= "👤 Ism: " . esc($name) . "\n";
+        $msg .= "💰 Balans: <b>" . formatSum($user['balance']) . " so'm</b>\n";
+        $msg .= "📥 Jami kiritilgan: " . formatSum($totalIn) . " so'm\n\n";
+        $msg .= "🔻 Quyidagi tugmalar orqali boshqaring:";
 
-        // User ma'lumotini yangilaymiz
-        $user = $db->query("SELECT * FROM users WHERE chat_id = $chat_id")->fetch();
-
-        if ($data == "deposit") {
-            $db->prepare("UPDATE users SET step = 'wait_sum' WHERE chat_id = ?")->execute([$chat_id]);
-            bot('deleteMessage', ['chat_id' => $chat_id, 'message_id' => $mid]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "💵 To'ldiriladigan summani yozing (min: 1000):", 'reply_markup' => json_encode(['keyboard' => [[['text' => "❌ Bekor qilish"]]], 'resize_keyboard' => true])]);
-        }
-        elseif ($data == "use_promo") {
-            $db->prepare("UPDATE users SET step = 'wait_promo' WHERE chat_id = ?")->execute([$chat_id]);
-            bot('deleteMessage', ['chat_id' => $chat_id, 'message_id' => $mid]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "🎁 Promo-kodni kiriting:"]);
-        }
-        // --- KUNLIK BONUS LOGIKASI ---
-        elseif ($data == "daily_bonus") {
-            $today = date('Y-m-d');
-            if ($user['last_bonus'] == $today) {
-                bot('answerCallbackQuery', [
-                    'callback_query_id' => $cb->id,
-                    'text' => "⚠️ Siz bugun bonus oldingiz! Ertaga qaytib keling.",
-                    'show_alert' => true
-                ]);
-            } else {
-                $bonus = 10;
-                $db->prepare("UPDATE users SET balance = balance + ?, last_bonus = ? WHERE chat_id = ?")->execute([$bonus, $today, $chat_id]);
-                bot('answerCallbackQuery', [
-                    'callback_query_id' => $cb->id,
-                    'text' => "✅ $bonus so'm bonus berildi!",
-                    'show_alert' => true
-                ]);
-                
-                // Kabinetni yangilash
-                $user = $db->query("SELECT * FROM users WHERE chat_id = $chat_id")->fetch(); // Yangi balansni olish
-                $totalIn = $db->query("SELECT SUM(amount) FROM orders WHERE user_id = $chat_id AND status = 'completed' AND type = 'deposit'")->fetchColumn() ?: 0;
-                $msgText = "👤 <b>Shaxsiy Kabinet</b>\n\n🆔 ID: <code>$chat_id</code>\n👤 Ism: " . esc($user['name']) . "\n💵 Balans: <b>" . formatSum($user['balance']) . " so'm</b>\n📥 Jami kiritilgan: " . formatSum($totalIn) . " so'm";
-                $key = json_encode(['inline_keyboard' => [
+        bot('sendMessage', [
+            'chat_id' => $chat_id,
+            'text' => $msg,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode([
+                'inline_keyboard' => [
                     [['text' => "💳 Hisobni to'ldirish", 'callback_data' => "deposit"]],
-                    [['text' => "🎁 Kunlik Bonus (10 so'm)", 'callback_data' => "daily_bonus"]],
-                    [['text' => "🎫 Promo-kod", 'callback_data' => "use_promo"]]
-                ]]);
-                bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => $msgText, 'parse_mode' => 'HTML', 'reply_markup' => $key]);
-            }
-        }
-        elseif (strpos($data, "cat_") === 0) {
-            $cat = str_replace("cat_", "", $data);
-            $prods = $db->prepare("SELECT * FROM products WHERE category = ?");
-            $prods->execute([$cat]);
-            $btn = [];
-            foreach ($prods->fetchAll() as $p) {
-                $btn[] = [['text' => $p['name'] . " - " . formatSum($p['price']) . " so'm", 'callback_data' => "buy_" . $p['id']]];
-            }
-            $btn[] = [['text' => "🔙 Orqaga", 'callback_data' => "back_home"]];
-            bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => "📱 <b>" . ucfirst($cat) . "</b> xizmatlari:", 'parse_mode' => 'HTML', 'reply_markup' => json_encode(['inline_keyboard' => $btn])]);
-        }
-        elseif ($data == "back_home") {
-            // Xizmatlar ro'yxatiga qaytish
-            $cats = $db->query("SELECT DISTINCT category FROM products")->fetchAll(PDO::FETCH_COLUMN);
+                    [['text' => "🎁 Kunlik Bonus", 'callback_data' => "daily_bonus"], ['text' => "🎫 Promo Kod", 'callback_data' => "promo"]]
+                ]
+            ])
+        ]);
+    }
+
+    // 3. XIZMATLAR BO'LIMI
+    elseif ($text == "🚀 Xizmatlar") {
+        $cats = $db->query("SELECT DISTINCT category FROM products")->fetchAll(PDO::FETCH_COLUMN);
+        
+        if (!$cats) {
+            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "😔 Hozircha xizmatlar mavjud emas."]);
+        } else {
             $btn = []; $row = [];
-            foreach ($cats as $c) {
-                $emoji = "📱";
-                if(stripos($c, 'insta') !== false) $emoji = "📸";
-                if(stripos($c, 'tele') !== false) $emoji = "✈️";
-                $row[] = ['text' => "$emoji " . ucfirst($c), 'callback_data' => "cat_" . $c];
+            foreach ($cats as $cat) {
+                $row[] = ['text' => "📂 " . ucfirst($cat), 'callback_data' => "cat_" . $cat];
                 if (count($row) == 2) { $btn[] = $row; $row = []; }
             }
             if ($row) $btn[] = $row;
-            bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => "🔻 Kerakli tarmoqni tanlang:", 'reply_markup' => json_encode(['inline_keyboard' => $btn])]);
-        }
-        elseif (strpos($data, "buy_") === 0) {
-            $pid = str_replace("buy_", "", $data);
-            $db->prepare("UPDATE users SET step = 'wait_link', temp_data = ? WHERE chat_id = ?")->execute([$pid, $chat_id]);
-            bot('deleteMessage', ['chat_id' => $chat_id, 'message_id' => $mid]);
-            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "🔗 <b>Havola (Link) yuboring:</b>\n\nMasalan:\n- <code>https://instagram.com/user</code>\n- <code>https://t.me/kanal</code>", 'parse_mode' => 'HTML', 'reply_markup' => json_encode(['keyboard' => [[['text' => "❌ Bekor qilish"]]], 'resize_keyboard' => true])]);
-        }
-        
-        // --- ADMIN CALLBACKLAR ---
-        if ($chat_id == $config['admin_id']) {
-            if (strpos($data, "pay_ok_") === 0) {
-                list(,,$uid, $amo) = explode("_", $data);
-                $db->prepare("UPDATE users SET balance = balance + ? WHERE chat_id = ?")->execute([$amo, $uid]);
-                $db->prepare("INSERT INTO orders (user_id, type, amount, status) VALUES (?, 'deposit', ?, 'completed')")->execute([$uid, $amo]);
-                bot('editMessageCaption', ['chat_id' => $chat_id, 'message_id' => $mid, 'caption' => "✅ Qabul qilindi. Balans to'ldirildi: $amo so'm"]);
-                bot('sendMessage', ['chat_id' => $uid, 'text' => "✅ To'lovingiz tasdiqlandi. Balansingizga $amo so'm qo'shildi."]);
-            }
-            elseif (strpos($data, "pay_no_") === 0) {
-                $uid = str_replace("pay_no_", "", $data);
-                bot('editMessageCaption', ['chat_id' => $chat_id, 'message_id' => $mid, 'caption' => "❌ Rad etildi."]);
-                bot('sendMessage', ['chat_id' => $uid, 'text' => "❌ To'lov cheki qabul qilinmadi."]);
-            }
-            // BUYURTMA BAJARILDI
-            elseif (strpos($data, "ord_done_") === 0) {
-                $oid = str_replace("ord_done_", "", $data);
-                $db->prepare("UPDATE orders SET status = 'completed' WHERE id = ?")->execute([$oid]);
-                $ord = $db->query("SELECT * FROM orders WHERE id = $oid")->fetch();
-                bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => "✅ Buyurtma #$oid BAJARILDI deb belgilandi."]);
-                bot('sendMessage', ['chat_id' => $ord['user_id'], 'text' => "✅ <b>Buyurtmangiz bajarildi!</b>\n\n#$oid - {$ord['service']}\n\nXizmatimizdan foydalanganingiz uchun rahmat!", 'parse_mode' => 'HTML']);
-            }
-            // BUYURTMA BEKOR QILINIB, PUL QAYTARILDI
-            elseif (strpos($data, "ord_ref_") === 0) {
-                $oid = str_replace("ord_ref_", "", $data);
-                $ord = $db->query("SELECT * FROM orders WHERE id = $oid")->fetch();
-                
-                // Agar avval pul qaytarilmagan bo'lsa
-                if ($ord['status'] != 'refunded') {
-                    $db->prepare("UPDATE orders SET status = 'refunded' WHERE id = ?")->execute([$oid]);
-                    $db->prepare("UPDATE users SET balance = balance + ? WHERE chat_id = ?")->execute([$ord['price'], $ord['user_id']]);
-                    
-                    bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => "🔙 Buyurtma #$oid bekor qilindi va <b>" . formatSum($ord['price']) . " so'm</b> qaytarildi.", 'parse_mode' => 'HTML']);
-                    bot('sendMessage', ['chat_id' => $ord['user_id'], 'text' => "⚠️ <b>Buyurtma bekor qilindi</b>\n\nBuyurtmangiz (#$oid) bajarilmadi va hisobingizga <b>" . formatSum($ord['price']) . " so'm</b> qaytarildi.", 'parse_mode' => 'HTML']);
-                } else {
-                    bot('answerCallbackQuery', ['callback_query_id' => $cb->id, 'text' => "Bu buyurtma allaqachon bekor qilingan!", 'show_alert' => true]);
-                }
-            }
-            elseif ($data == "adm_add_start") {
-                $db->prepare("UPDATE users SET step = 'adm_add_cat' WHERE chat_id = ?")->execute([$chat_id]);
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "📂 Kategoriya (platforma) nomini yozing:"]);
-            }
-            elseif ($data == "adm_del_list") {
-                $all = $db->query("SELECT * FROM products")->fetchAll();
-                if(!$all) bot('sendMessage', ['chat_id' => $chat_id, 'text' => "Xizmatlar yo'q."]);
-                else {
-                    $btn = []; foreach($all as $p){ $btn[] = [['text' => "🗑 " . $p['name'], 'callback_data' => "real_del_" . $p['id']]]; }
-                    bot('sendMessage', ['chat_id' => $chat_id, 'text' => "O'chirish uchun tanlang:", 'reply_markup' => json_encode(['inline_keyboard' => $btn])]);
-                }
-            }
-            elseif (strpos($data, "real_del_") === 0) {
-                $pid = str_replace("real_del_", "", $data);
-                $db->prepare("DELETE FROM products WHERE id = ?")->execute([$pid]);
-                bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => "✅ O'chirildi."]);
-            }
-            elseif ($data == "adm_stat") {
-                $u = $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
-                $o = $db->query("SELECT COUNT(*) FROM orders WHERE status='completed' AND type='purchase'")->fetchColumn();
-                $m = $db->query("SELECT SUM(amount) FROM orders WHERE status='completed' AND type='deposit'")->fetchColumn() ?: 0;
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "📊 <b>Statistika:</b>\n\n👤 Userlar: $u\n🛒 Sotuvlar: $o\n💰 Tushum: " . formatSum($m) . " so'm", 'parse_mode' => 'HTML']);
-            }
-            elseif ($data == "adm_mail") {
-                $db->prepare("UPDATE users SET step = 'adm_mail_all' WHERE chat_id = ?")->execute([$chat_id]);
-                bot('sendMessage', ['chat_id' => $chat_id, 'text' => "📣 Xabar matnini yuboring:"]);
-            }
+            
+            bot('sendMessage', [
+                'chat_id' => $chat_id,
+                'text' => "👇 Kerakli ijtimoiy tarmoqni tanlang:",
+                'reply_markup' => json_encode(['inline_keyboard' => $btn])
+            ]);
         }
     }
 
-} catch (Exception $e) {
-    error_log("Bot xatosi: " . $e->getMessage());
+    // 4. ADMIN PANEL (Faqat Admin uchun)
+    elseif ($text == "⚙️ Admin Panel" && $chat_id == $config['admin_id']) {
+        bot('sendMessage', [
+            'chat_id' => $chat_id,
+            'text' => "👑 <b>Admin Boshqaruv Paneli</b>\nTanlang:",
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode([
+                'inline_keyboard' => [
+                    [['text' => "➕ Xizmat qo'shish", 'callback_data' => "adm_add"], ['text' => "🗑 Xizmat o'chirish", 'callback_data' => "adm_del"]],
+                    [['text' => "📊 Statistika", 'callback_data' => "adm_stat"], ['text' => "✉️ Xabar yuborish", 'callback_data' => "adm_send"]]
+                ]
+            ])
+        ]);
+    }
+
+    // 5. STATUSLAR (STEPS) BILAN ISHLASH
+    
+    // --- To'lov Summasini kiritish ---
+    elseif ($user['step'] == 'wait_sum') {
+        if (is_numeric($text) && $text >= $config['min_pay']) {
+            $db->prepare("UPDATE users SET step = 'wait_check', temp_data = ? WHERE chat_id = ?")->execute([$text, $chat_id]);
+            bot('sendMessage', [
+                'chat_id' => $chat_id,
+                'text' => "💳 <b>To'lov ma'lumotlari:</b>\n\nKartamiz: <code>" . $config['card_num'] . "</code>\nSumma: <b>" . formatSum($text) . " so'm</b>\n\n📸 Iltimos, to'lov qilganingiz haqida <b>chek (skrinshot)</b> yuboring:",
+                'parse_mode' => 'HTML'
+            ]);
+        } else {
+            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "❌ Minimal to'lov: " . $config['min_pay'] . " so'm. Iltimos, faqat raqam yozing."]);
+        }
+    }
+
+    // --- Chekni qabul qilish ---
+    elseif ($user['step'] == 'wait_check') {
+        if (isset($message->photo)) {
+            $photo = end($message->photo)->file_id;
+            $summa = $user['temp_data'];
+            
+            // Adminga yuborish
+            bot('sendPhoto', [
+                'chat_id' => $config['admin_id'],
+                'photo' => $photo,
+                'caption' => "💰 <b>Yangi To'lov!</b>\n\n👤 User: <a href='tg://user?id=$chat_id'>$name</a>\n💵 Summa: <b>" . formatSum($summa) . " so'm</b>\n🆔 ID: $chat_id",
+                'parse_mode' => 'HTML',
+                'reply_markup' => json_encode([
+                    'inline_keyboard' => [
+                        [
+                            ['text' => "✅ Tasdiqlash", 'callback_data' => "pay_confirm_{$chat_id}_{$summa}"],
+                            ['text' => "❌ Rad etish", 'callback_data' => "pay_reject_{$chat_id}"]
+                        ]
+                    ]
+                ])
+            ]);
+
+            $db->prepare("UPDATE users SET step = 'none', temp_data = '' WHERE chat_id = ?")->execute([$chat_id]);
+            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Chek qabul qilindi! Admin tekshirib tasdiqlagach, balansingizga pul tushadi."]);
+        } else {
+            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "📸 Iltimos, rasm (skrinshot) yuboring."]);
+        }
+    }
+
+    // --- Buyurtma Linkini qabul qilish ---
+    elseif ($user['step'] == 'wait_link') {
+        $prod_id = $user['temp_data'];
+        $product = $db->query("SELECT * FROM products WHERE id = " . (int)$prod_id)->fetch();
+
+        if ($product && $user['balance'] >= $product['price']) {
+            // Balansdan yechish
+            $db->prepare("UPDATE users SET balance = balance - ?, step = 'none', temp_data = '' WHERE chat_id = ?")->execute([$product['price'], $chat_id]);
+            
+            // Order yaratish
+            $stmt = $db->prepare("INSERT INTO orders (user_id, type, service_name, amount, link, status) VALUES (?, 'order', ?, ?, ?, 'pending')");
+            $stmt->execute([$chat_id, $product['name'], $product['price'], $text]);
+            $order_id = $db->lastInsertId();
+
+            // Adminga xabar
+            bot('sendMessage', [
+                'chat_id' => $config['admin_id'],
+                'text' => "📦 <b>Yangi Buyurtma #$order_id</b>\n\n👤 User: <a href='tg://user?id=$chat_id'>$name</a>\n📌 Xizmat: {$product['name']}\n🔗 Link: $text\n💰 Narx: " . formatSum($product['price']) . " so'm",
+                'parse_mode' => 'HTML',
+                'disable_web_page_preview' => true,
+                'reply_markup' => json_encode([
+                    'inline_keyboard' => [[['text' => "✅ Bajarildi deb belgilash", 'callback_data' => "order_done_$order_id"]]]
+                ])
+            ]);
+
+            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Buyurtmangiz qabul qilindi (ID: #$order_id). Tez orada bajariladi!"]);
+        } else {
+            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "❌ Balansingizda mablag' yetarli emas. Iltimos, hisobni to'ldiring."]);
+            $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
+        }
+    }
+    
+    // --- Admin: Xizmat qo'shish jarayoni ---
+    elseif ($user['step'] == 'add_cat' && $chat_id == $config['admin_id']) {
+        $db->prepare("UPDATE users SET step = 'add_name', temp_data = ? WHERE chat_id = ?")->execute([$text, $chat_id]);
+        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✏️ Xizmat nomini kiriting (Masalan: 1000 Obunachi):"]);
+    }
+    elseif ($user['step'] == 'add_name' && $chat_id == $config['admin_id']) {
+        $db->prepare("UPDATE users SET step = 'add_price', temp_data = temp_data || '|' || ? WHERE chat_id = ?")->execute([$text, $chat_id]);
+        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "💰 Narxini kiriting (faqat raqam):"]);
+    }
+    elseif ($user['step'] == 'add_price' && $chat_id == $config['admin_id']) {
+        if (is_numeric($text)) {
+            $data = explode('|', $user['temp_data']);
+            $db->prepare("INSERT INTO products (category, name, price) VALUES (?, ?, ?)")->execute([$data[0], $data[1], $text]);
+            $db->prepare("UPDATE users SET step = 'none' WHERE chat_id = ?")->execute([$chat_id]);
+            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Xizmat muvaffaqiyatli qo'shildi!"]);
+        } else {
+            bot('sendMessage', ['chat_id' => $chat_id, 'text' => "❌ Iltimos, narxni raqamda kiriting."]);
+        }
+    }
+}
+
+// ================= CALLBACK QUERY (TUGMALAR) =================
+if (isset($update->callback_query)) {
+    $cb = $update->callback_query;
+    $chat_id = $cb->message->chat->id;
+    $mid = $cb->message->message_id;
+    $data = $cb->data;
+    $cb_id = $cb->id;
+
+    // Userni yangilash
+    $user = $db->query("SELECT * FROM users WHERE chat_id = $chat_id")->fetch();
+
+    // 1. HISOB TO'LDIRISH
+    if ($data == "deposit") {
+        $db->prepare("UPDATE users SET step = 'wait_sum' WHERE chat_id = ?")->execute([$chat_id]);
+        bot('deleteMessage', ['chat_id' => $chat_id, 'message_id' => $mid]);
+        bot('sendMessage', [
+            'chat_id' => $chat_id,
+            'text' => "💵 Hisobni to'ldirish uchun summani yozing (Min: " . $config['min_pay'] . " so'm):",
+            'reply_markup' => json_encode(['keyboard' => [[['text' => "❌ Bekor qilish"]]], 'resize_keyboard' => true])
+        ]);
+    }
+
+    // 2. KUNLIK BONUS (FIXED)
+    elseif ($data == "daily_bonus") {
+        $today = date('Y-m-d');
+        if ($user['last_bonus_date'] == $today) {
+            bot('answerCallbackQuery', [
+                'callback_query_id' => $cb_id,
+                'text' => "⚠️ Siz bugun bonus oldingiz! Ertaga yana kiring.",
+                'show_alert' => true
+            ]);
+        } else {
+            $db->prepare("UPDATE users SET balance = balance + ?, last_bonus_date = ? WHERE chat_id = ?")->execute([$config['bonus_sum'], $today, $chat_id]);
+            bot('answerCallbackQuery', [
+                'callback_query_id' => $cb_id,
+                'text' => "✅ Tabriklaymiz! Sizga " . $config['bonus_sum'] . " so'm bonus berildi.",
+                'show_alert' => true
+            ]);
+            // Kabinetni yangilash
+            $totalIn = $db->query("SELECT COALESCE(SUM(amount), 0) FROM orders WHERE user_id = $chat_id AND type = 'deposit' AND status = 'completed'")->fetchColumn();
+            $newBal = $user['balance'] + $config['bonus_sum'];
+            
+            $msg = "👤 <b>Sizning Kabinetingiz:</b>\n\n🆔 ID: <code>$chat_id</code>\n👤 Ism: " . esc($user['name']) . "\n💰 Balans: <b>" . formatSum($newBal) . " so'm</b>\n📥 Jami kiritilgan: " . formatSum($totalIn) . " so'm\n\n🔻 Quyidagi tugmalar orqali boshqaring:";
+            
+            bot('editMessageText', [
+                'chat_id' => $chat_id,
+                'message_id' => $mid,
+                'text' => $msg,
+                'parse_mode' => 'HTML',
+                'reply_markup' => json_encode([
+                    'inline_keyboard' => [
+                        [['text' => "💳 Hisobni to'ldirish", 'callback_data' => "deposit"]],
+                        [['text' => "🎁 Kunlik Bonus", 'callback_data' => "daily_bonus"], ['text' => "🎫 Promo Kod", 'callback_data' => "promo"]]
+                    ]
+                ])
+            ]);
+        }
+    }
+
+    // 3. XIZMATLAR KATEGORIYASI
+    elseif (strpos($data, "cat_") === 0) {
+        $cat = str_replace("cat_", "", $data);
+        $products = $db->prepare("SELECT * FROM products WHERE category = ?");
+        $products->execute([$cat]);
+        $rows = $products->fetchAll();
+
+        $btn = [];
+        foreach ($rows as $p) {
+            $btn[] = [['text' => $p['name'] . " - " . formatSum($p['price']) . " so'm", 'callback_data' => "buy_" . $p['id']]];
+        }
+        $btn[] = [['text' => "🔙 Orqaga", 'callback_data' => "back_services"]];
+
+        bot('editMessageText', [
+            'chat_id' => $chat_id,
+            'message_id' => $mid,
+            'text' => "📱 <b>" . ucfirst($cat) . "</b> uchun xizmatlar:",
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['inline_keyboard' => $btn])
+        ]);
+    }
+    
+    elseif ($data == "back_services") {
+        $cats = $db->query("SELECT DISTINCT category FROM products")->fetchAll(PDO::FETCH_COLUMN);
+        $btn = []; $row = [];
+        foreach ($cats as $cat) {
+            $row[] = ['text' => "📂 " . ucfirst($cat), 'callback_data' => "cat_" . $cat];
+            if (count($row) == 2) { $btn[] = $row; $row = []; }
+        }
+        if ($row) $btn[] = $row;
+        bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => "👇 Kerakli ijtimoiy tarmoqni tanlang:", 'reply_markup' => json_encode(['inline_keyboard' => $btn])]);
+    }
+
+    // 4. XARID QILISH
+    elseif (strpos($data, "buy_") === 0) {
+        $pid = str_replace("buy_", "", $data);
+        $db->prepare("UPDATE users SET step = 'wait_link', temp_data = ? WHERE chat_id = ?")->execute([$pid, $chat_id]);
+        bot('deleteMessage', ['chat_id' => $chat_id, 'message_id' => $mid]);
+        bot('sendMessage', [
+            'chat_id' => $chat_id,
+            'text' => "🔗 <b>Havolani yuboring:</b>\n\nMasalan: <code>https://instagram.com/user</code>\n\n(Bekor qilish uchun '❌ Bekor qilish' tugmasini bosing)",
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['keyboard' => [[['text' => "❌ Bekor qilish"]]], 'resize_keyboard' => true])
+        ]);
+    }
+
+    // ================= ADMIN ACTIONS =================
+    
+    // To'lovni tasdiqlash
+    if (strpos($data, "pay_confirm_") === 0 && $chat_id == $config['admin_id']) {
+        list(,,$user_id, $amount) = explode("_", $data);
+        
+        // Balansni to'ldirish
+        $db->prepare("UPDATE users SET balance = balance + ? WHERE chat_id = ?")->execute([$amount, $user_id]);
+        // Tarixga yozish
+        $db->prepare("INSERT INTO orders (user_id, type, service_name, amount, status) VALUES (?, 'deposit', 'Balans toldirish', ?, 'completed')")->execute([$user_id, $amount]);
+
+        bot('editMessageCaption', ['chat_id' => $chat_id, 'message_id' => $mid, 'caption' => "✅ <b>Qabul qilindi!</b>\nFoydalanuvchiga $amount so'm qo'shildi.", 'parse_mode' => 'HTML']);
+        bot('sendMessage', ['chat_id' => $user_id, 'text' => "✅ To'lovingiz tasdiqlandi! Balansingizga " . formatSum($amount) . " so'm qo'shildi."]);
+    }
+
+    // To'lovni rad etish
+    if (strpos($data, "pay_reject_") === 0 && $chat_id == $config['admin_id']) {
+        $user_id = str_replace("pay_reject_", "", $data);
+        bot('editMessageCaption', ['chat_id' => $chat_id, 'message_id' => $mid, 'caption' => "❌ <b>Rad etildi!</b>"]);
+        bot('sendMessage', ['chat_id' => $user_id, 'text' => "❌ To'lovingiz qabul qilinmadi. Chek noaniq yoki xato."]);
+    }
+    
+    // Orderni bajarildi qilish
+    if (strpos($data, "order_done_") === 0 && $chat_id == $config['admin_id']) {
+        $oid = str_replace("order_done_", "", $data);
+        $db->prepare("UPDATE orders SET status = 'completed' WHERE id = ?")->execute([$oid]);
+        $ord = $db->query("SELECT user_id, service_name FROM orders WHERE id = $oid")->fetch();
+        
+        bot('editMessageText', ['chat_id' => $chat_id, 'message_id' => $mid, 'text' => "✅ Buyurtma #$oid bajarildi deb belgilandi."]);
+        bot('sendMessage', ['chat_id' => $ord['user_id'], 'text' => "✅ <b>Buyurtmangiz bajarildi!</b>\n\nXizmat: {$ord['service_name']}\n\nBizni tanlaganingiz uchun rahmat!", 'parse_mode' => 'HTML']);
+    }
+
+    // Admin Menyular
+    if ($data == "adm_add" && $chat_id == $config['admin_id']) {
+        $db->prepare("UPDATE users SET step = 'add_cat' WHERE chat_id = ?")->execute([$chat_id]);
+        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "📂 Yangi xizmat uchun kategoriya nomini yozing (Masalan: Telegram):"]);
+    }
+    
+    if ($data == "adm_stat" && $chat_id == $config['admin_id']) {
+        $u_count = $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        $o_count = $db->query("SELECT COUNT(*) FROM orders WHERE type='order'")->fetchColumn();
+        $money = $db->query("SELECT COALESCE(SUM(amount), 0) FROM orders WHERE type='deposit' AND status='completed'")->fetchColumn();
+        
+        bot('sendMessage', ['chat_id' => $chat_id, 'text' => "📊 <b>Statistika:</b>\n\n👤 Foydalanuvchilar: $u_count ta\n📦 Buyurtmalar: $o_count ta\n💰 Jami tushum: " . formatSum($money) . " so'm", 'parse_mode' => 'HTML']);
+    }
 }
 ?>
