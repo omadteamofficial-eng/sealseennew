@@ -115,6 +115,7 @@ try {
             $key = json_encode(['inline_keyboard' => [
                 [['text' => "➕ Xizmat qo'shish", 'callback_data' => "adm_add_start"]],
                 [['text' => "🗑 Xizmatni o'chirish", 'callback_data' => "adm_del_list"]],
+                [['text' => "🎁 Promo yaratish", 'callback_data' => "adm_promo_start"]],
                 [['text' => "📣 Xabar yuborish", 'callback_data' => "adm_mail"], ['text' => "📊 Statistika", 'callback_data' => "adm_stat"]]
             ]]);
             bot('sendMessage', ['chat_id' => $chat_id, 'text' => "⚙️ <b>Admin Panel</b>\n\nBu yerdan botni boshqarishingiz mumkin.", 'parse_mode' => 'HTML', 'reply_markup' => $key]);
