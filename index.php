@@ -10,11 +10,11 @@ ini_set('error_log', 'bot_errors.log');
 
 // --- SOZLAMALAR ---
 $config = [
-    'bot_token' => 'YOUR_BOT_TOKEN_HERE', // Bot tokenini shu yerga yozing
-    'admin_id'  => 123456789,             // Admin Telegram ID raqami
+    'bot_token' => '8325934929:AAHeKcqYVZZmb2DZ-wTEzcyup0ewOVHJMi8', // Bot tokenini shu yerga yozing
+    'admin_id'  => 8125289524,             // Admin Telegram ID raqami
     'db_file'   => 'smm_store.db',        // Baza fayli nomi
-    'card_num'  => '8600 0000 0000 0000', // Karta raqamingiz
-    'card_name' => 'Ism Familiya'         // Karta egasi
+    'card_num'  => '5614 6868 1732 2558', // Karta raqamingiz
+    'card_name' => 'Sayfullayev Sherali'         // Karta egasi
 ];
 
 if ($config['bot_token'] == 'YOUR_BOT_TOKEN_HERE') die("⚠️ Bot tokeni kiritilmagan! Kodni tahrirlang.");
