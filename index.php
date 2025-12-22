@@ -6,8 +6,8 @@
  */
 
 // ==================== KONFIGURATSIYA ====================
-define('BOT_TOKEN', 'YOUR_BOT_TOKEN_HERE');
-define('ADMIN_ID', [123456789, 987654321]);
+define('BOT_TOKEN', '8325934929:AAHeKcqYVZZmb2DZ-wTEzcyup0ewOVHJMi8');
+define('ADMIN_ID', [8125289524]);
 define('API_KEY', 'YOUR_SMM_API_KEY');
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'smm_bot');
