@@ -309,6 +309,25 @@ try {
             $db->prepare("UPDATE users SET step = 'wait_link', temp_data = ? WHERE chat_id = ?")->execute([$pid, $chat_id]);
             bot('sendMessage', ['chat_id' => $chat_id, 'text' => "🔗 Xizmat ko'rsatilishi kerak bo'lgan <b>Havola (Link)</b> yoki <b>Username</b> ni yuboring:", 'parse_mode' => 'HTML', 'reply_markup' => json_encode(['keyboard' => [[['text' => "❌ Bekor qilish"]]], 'resize_keyboard' => true])]);
         }
+// Admin panel menyusiga tugma qo'shish uchun:
+// [['text' => "🎁 Promo yaratish", 'callback_data' => "adm_promo_start"]]
+
+if ($data == "adm_promo_start") {
+    $db->prepare("UPDATE users SET step = 'adm_promo_code' WHERE chat_id = ?")->execute([$chat_id]);
+    bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✍️ Yangi promo-kod nomini yozing (Masalan: BONUS2025):"]);
+}
+
+// Steplar (Message qismi) ichiga quyidagilarni qo'shing:
+elseif ($user['step'] == 'adm_promo_code') {
+    $db->prepare("UPDATE users SET step = 'adm_promo_amount', temp_data = ? WHERE chat_id = ?")->execute([$text, $chat_id]);
+    bot('sendMessage', ['chat_id' => $chat_id, 'text' => "💰 Ushbu kod qiymatini kiriting (Masalan: 5000):"]);
+}
+elseif ($user['step'] == 'adm_promo_amount' && is_numeric($text)) {
+    $code = $user['temp_data'];
+    $db->prepare("INSERT INTO promos (code, amount, status) VALUES (?, ?, 'active')")->execute([$code, (int)$text]);
+    $db->prepare("UPDATE users SET step = 'none', temp_data = '' WHERE chat_id = ?")->execute([$chat_id]);
+    bot('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ Promo-kod yaratildi: <b>$code</b>\nQiymati: $text so'm", 'parse_mode' => 'HTML']);
+}
 
         // Admin Callback Amallari
         if ($chat_id == $config['admin_id']) {
